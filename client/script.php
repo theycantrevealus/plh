@@ -35,4 +35,5 @@
 <script src="<?php echo __HOSTNAME__; ?>/plugins/socketio/socket.io.min.js"></script>
 <script src="<?php echo __HOSTNAME__; ?>/plugins/DataTables/datatables.rowgroup.js"></script>
 <script src="<?php echo __HOSTNAME__; ?>/plugins/swal/dist/sweetalert2.all.min.js"></script>
+<script src="<?php echo __HOSTNAME__; ?>/plugins/timepicker/jquery.timepicker.js"></script>
 <script src="<?php echo __HOSTNAME__; ?>/plugins/intro/intro.js"></script>

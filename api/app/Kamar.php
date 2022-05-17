@@ -33,6 +33,9 @@ class Kamar extends Utility
       case 'kamar_list':
         return self::kamar_list($parameter);
         break;
+      case 'kamar_list_status':
+        return self::kamar_list_status($parameter);
+        break;
       case 'tambah_kamar':
         return self::tambah_kamar($parameter);
         break;
@@ -144,7 +147,7 @@ class Kamar extends Utility
           'login_id'
         ),
         'value' => array(
-          $parameter['uid'],
+          $uid,
           $UserData['data']->uid,
           'master_kamar_tipe',
           'I',
@@ -303,6 +306,82 @@ class Kamar extends Utility
         'class' => __CLASS__
       ));
     }
+    return $data;
+  }
+
+  private function kamar_list_status($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+      $paramData = array(
+        '(master_kamar.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+        'OR',
+        'master_kamar_tipe.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+        'AND',
+        'master_kamar.status' => '= ?',
+        'AND',
+        'master_kamar.tipe' => '= ?',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      );
+      $paramValue = array($parameter['status'], $parameter['tipe']);
+    } else {
+      $paramData = array(
+        'master_kamar.deleted_at' => 'IS NULL',
+        'AND',
+        'master_kamar.status' => '= ?',
+        'AND',
+        'master_kamar.tipe' => '= ?'
+      );
+      $paramValue = array($parameter['status'], $parameter['tipe']);
+    }
+
+    if ($parameter['length'] < 0) {
+      $data = self::$query->select('master_kamar', array(
+        'uid', 'nomor', 'tipe', 'keterangan', 'status'
+      ))
+        ->join('master_kamar_tipe', array(
+          'nama', 'kode'
+        ))
+        ->on(array(
+          array('master_kamar.tipe', '=', 'master_kamar_tipe.uid')
+        ))
+        ->where($paramData, $paramValue)
+        ->execute();
+    } else {
+      $data = self::$query->select('master_kamar', array(
+        'uid', 'nomor', 'tipe', 'keterangan', 'status'
+      ))
+        ->join('master_kamar_tipe', array(
+          'nama', 'kode'
+        ))
+        ->on(array(
+          array('master_kamar.tipe', '=', 'master_kamar_tipe.uid')
+        ))
+        ->where($paramData, $paramValue)
+        ->offset(intval($parameter['start']))
+        ->limit(intval($parameter['length']))
+        ->execute();
+    }
+
+    $data['response_draw'] = $parameter['draw'];
+    $autonum = intval($parameter['start']) + 1;
+    foreach ($data['response_data'] as $key => $value) {
+      $data['response_data'][$key]['autonum'] = $autonum;
+      $autonum++;
+    }
+
+    $itemTotal = self::$query->select('master_kamar_tipe', array(
+      'uid'
+    ))
+      ->where($paramData, $paramValue)
+      ->execute();
+
+    $data['recordsTotal'] = count($itemTotal['response_data']);
+    $data['recordsFiltered'] = count($itemTotal['response_data']);
+    $data['length'] = intval($parameter['length']);
+    $data['start'] = intval($parameter['start']);
     return $data;
   }
 

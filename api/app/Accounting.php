@@ -67,8 +67,8 @@ class Accounting extends Utility
     try {
 
       switch ($parameter[1]) {
-        case 'ujiclass':
-          // return self::uji_class();
+        case 'get_payment_method':
+          return self::get_payment_method();
           break;
         default:
           return 'Unknown request';
@@ -76,6 +76,19 @@ class Accounting extends Utility
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  private function get_payment_method()
+  {
+    $data = self::$query->select('master_accounting_payment', array(
+      'uid', 'kode', 'keterangan'
+    ))
+      ->where(array(
+        'master_accounting_payment.deleted_at' => 'IS NULL'
+      ), array())
+      ->execute();
+
+    return $data;
   }
 
   private function payment_method_detail($parameter)

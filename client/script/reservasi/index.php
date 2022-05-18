@@ -18,6 +18,107 @@
       $("#modal-reservasi").modal("show");
     });
 
+    var DTRH = $("#table-history").DataTable({
+      processing: true,
+      serverSide: true,
+      sPaginationType: "full_numbers",
+      bPaginate: true,
+      lengthMenu: [
+        [20, 50, -1],
+        [20, 50, "All"]
+      ],
+      serverMethod: "POST",
+      "ajax": {
+        url: __HOSTAPI__ + "/Reservasi",
+        type: "POST",
+        headers: {
+          Authorization: "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>
+        },
+        data: function(d) {
+          d.request = "reservasi_list_history";
+        },
+        dataSrc: function(response) {
+          var returnData = [];
+          var rawData = [];
+          if (
+            response === undefined ||
+            response === null ||
+            response.response_package === undefined ||
+            response.response_package === null) {
+            rawData = [];
+            response.draw = 1;
+            response.recordsTotal = 0;
+            response.recordsFiltered = 0;
+          } else {
+            rawData = response.response_package.response_data;
+            for (var polKey in rawData) {
+              returnData.push(rawData[polKey]);
+            }
+
+            response.draw = parseInt(response.response_package.response_draw);
+            response.recordsTotal = response.response_package.recordsTotal;
+            response.recordsFiltered = response.response_package.recordsFiltered;
+          }
+          return returnData;
+        }
+      },
+      autoWidth: false,
+      aaSorting: [
+        [0, "asc"]
+      ],
+      "columnDefs": [{
+        "targets": 0,
+        "className": "dt-body-left"
+      }],
+      "rowCallback": function(row, data, index) {
+        var harga = parseFloat(data.harga);
+        for (const a in data.detail) {
+          harga += parseFloat(data.detail[a].harga);
+        }
+
+        $("td .harga_set", row).html(number_format(harga, 2, ".", ",")).attr("id", "harga_rate_" + data.uid);
+      },
+      "columns": [{
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"autonum\">" + row.autonum + " " + ((row.vip === "Y") ? "<i class=\"pull-right fa fa-star text-warning\"></i>" : "") + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            var company = "<span class=\"text-info\">" + ((row.company !== undefined && row.company !== null) ? row.company.kode + " - " + row.company.nama : "") + "</span>";
+            return "<b class=\"wrap_content\">" + row.nama_depan + " " + row.nama_belakang + "</b><br />" + company;
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + row.check_in + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + row.check_out + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<div class=\"btn-group wrap_content\" role=\"group\" aria-label=\"Basic example\">" +
+              "<button id=\"tipe_edit_" + row.uid + "\" class=\"btn btn-info btn-sm btn-edit-reservasi\">" +
+              "<span><i class=\"fa fa-eye\"></i> Edit</span>" +
+              "</button>" +
+              "<button id=\"tipe_delete_" + row.uid + "\" class=\"btn btn-danger btn-sm btn-delete-tipe\">" +
+              "<span><i class=\"fa fa-trash\"></i> Hapus</span>" +
+              "</button>" +
+              "</div>";
+          }
+        }
+      ]
+    });
+
     var DTRE = $("#table-tipe").DataTable({
       processing: true,
       serverSide: true,
@@ -777,6 +878,7 @@
                 if (response.response_package.response_result > 0) {
                   $("#modal-reservasi").modal("hide");
                   DTRE.ajax.reload();
+                  DTRH.ajax.reload();
                   reset_form();
                   selectedRate = "";
                   selectedTipe = "";

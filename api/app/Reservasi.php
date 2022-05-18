@@ -33,6 +33,9 @@ class Reservasi extends Utility
       case 'reservasi_list':
         return self::reservasi_list($parameter);
         break;
+      case 'reservasi_list_history':
+        return self::reservasi_list_history($parameter);
+        break;
       case 'edit_reservasi':
         return self::edit_reservasi($parameter);
         break;
@@ -164,12 +167,97 @@ class Reservasi extends Utility
         'OR',
         'customer.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
         'AND',
-        'reservasi.deleted_at' => 'IS NULL'
+        'reservasi.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.kamar' => 'IS NULL'
       );
       $paramValue = array();
     } else {
       $paramData = array(
-        'reservasi.deleted_at' => 'IS NULL'
+        'reservasi.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.kamar' => 'IS NULL'
+      );
+      $paramValue = array();
+    }
+
+    if ($parameter['length'] < 0) {
+      $data = self::$query->select('reservasi', array(
+        'uid', 'no_reservasi', 'check_in', 'check_out', 'vip', 'company'
+      ))
+        ->join('customer', array(
+          'nama_depan', 'nama_belakang'
+        ))
+        ->on(array(
+          array('reservasi.customer', '=', 'customer.uid')
+        ))
+        ->where($paramData, $paramValue)
+        ->execute();
+    } else {
+      $data = self::$query->select('reservasi', array(
+        'uid', 'no_reservasi', 'check_in', 'check_out', 'vip', 'company'
+      ))
+        ->join('customer', array(
+          'nama_depan', 'nama_belakang'
+        ))
+        ->on(array(
+          array('reservasi.customer', '=', 'customer.uid')
+        ))
+        ->where($paramData, $paramValue)
+        ->offset(intval($parameter['start']))
+        ->limit(intval($parameter['length']))
+        ->execute();
+    }
+
+    $data['response_draw'] = $parameter['draw'];
+    $autonum = intval($parameter['start']) + 1;
+    foreach ($data['response_data'] as $key => $value) {
+      $data['response_data'][$key]['autonum'] = $autonum;
+      $data['response_data'][$key]['company'] = self::$query->select('company', array('uid', 'kode', 'nama'))->where(array('company.uid' => '= ?'), array($value['company']))->execute()['response_data'][0];
+      $data['response_data'][$key]['check_in'] = date('d F Y H:i', strtotime($value['check_in']));
+      $data['response_data'][$key]['check_out'] = date('d F Y H:i', strtotime($value['check_out']));
+      $autonum++;
+    }
+
+    $itemTotal = self::$query->select('reservasi', array(
+      'uid'
+    ))
+      ->join('customer', array(
+        'nama_depan', 'nama_belakang'
+      ))
+      ->on(array(
+        array('reservasi.customer', '=', 'customer.uid')
+      ))
+      ->where($paramData, $paramValue)
+      ->execute();
+
+    $data['recordsTotal'] = count($itemTotal['response_data']);
+    $data['recordsFiltered'] = count($itemTotal['response_data']);
+    $data['length'] = intval($parameter['length']);
+    $data['start'] = intval($parameter['start']);
+    return $data;
+  }
+
+  private function reservasi_list_history($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+      $paramData = array(
+        '(reservasi.no_reservasi' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+        'OR',
+        'customer.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+        'AND',
+        'reservasi.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.kamar' => 'IS NOT NULL'
+      );
+      $paramValue = array();
+    } else {
+      $paramData = array(
+        'reservasi.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.kamar' => 'IS NOT NULL'
       );
       $paramValue = array();
     }

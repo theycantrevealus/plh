@@ -14,10 +14,7 @@
 <div class="container-fluid page__container">
   <div class="card">
     <div class="card-header card-header-large bg-white d-flex align-items-center">
-      <h5 class="card-header__title flex m-0">Reservasi</h5>
-      <button id="btnTambahReservasi" class="btn btn-info ml-3 pull-right">
-        <i class="fa fa-plus"></i> Tambah Reservasi
-      </button>
+      <h5 class="card-header__title flex m-0">Folio</h5>
     </div>
     <div class="card-body">
       <div class="z-0">
@@ -27,7 +24,7 @@
               <span class="nav-link__count">
                 <i class="fa fa-address-book"></i>
               </span>
-              Reservasi
+              Folio
             </a>
           </li>
           <li class="nav-item">
@@ -42,13 +39,16 @@
       </div>
       <div class="card card-body tab-content">
         <div class="tab-pane show active fade" id="tab-1">
-          <table class="table table-bordered" id="table-tipe">
+          <table class="table table-bordered" id="table-folio">
             <thead class="thead-dark">
               <tr>
-                <th class="wrap_content">No</th>
+                <th class="wrap_content">No Reservasi</th>
+                <th class="wrap_content">No Folio</th>
                 <th>Guest</th>
+                <th class="wrap_content">No. Kamar</th>
                 <th class="wrap_content">Check In</th>
                 <th class="wrap_content">Check Out</th>
+                <th class="wrap_content">Balance</th>
                 <th class="wrap_content">Aksi</th>
               </tr>
             </thead>

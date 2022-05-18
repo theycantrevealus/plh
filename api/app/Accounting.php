@@ -70,12 +70,27 @@ class Accounting extends Utility
         case 'get_payment_method':
           return self::get_payment_method();
           break;
+        case 'get_transcode':
+          return self::get_transcode();
+          break;
         default:
           return 'Unknown request';
       }
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  private function get_transcode()
+  {
+    $data = self::$query->select('master_accounting_transact', array(
+      'uid', 'kode', 'keterangan', 'dbcr', 'apply_tax', 'apply_service'
+    ))
+      ->where(array(
+        'master_accounting_transact.kode' => 'ILIKE ' . '\'%' . strtoupper($_GET['search']) . '%\''
+      ), array())
+      ->execute();
+    return $data;
   }
 
   private function get_payment_method()

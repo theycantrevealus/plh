@@ -33,6 +33,9 @@ class Kamar extends Utility
       case 'kamar_list':
         return self::kamar_list($parameter);
         break;
+      case 'kamar_list_monitoring':
+        return self::kamar_list_monitoring($parameter);
+        break;
       case 'kamar_list_status':
         return self::kamar_list_status($parameter);
         break;
@@ -47,6 +50,9 @@ class Kamar extends Utility
         break;
       case 'edit_tipe':
         return self::edit_tipe($parameter);
+        break;
+      case 'ubah_status':
+        return self::ubah_status($parameter);
         break;
     }
   }
@@ -173,6 +179,36 @@ class Kamar extends Utility
     return $data;
   }
 
+  private function ubah_status($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+
+    $data = self::$query->update('master_kamar', array(
+      'status' => $parameter['status']
+    ))
+      ->where(array(
+        'master_kamar.uid' => '= ?'
+      ), array(
+        $parameter['kamar']
+      ))
+      ->execute();
+    if ($data['response_result'] > 0) {
+      // Insert Log
+      $cleaning = self::$query->insert('kamar_cleaning', array(
+        'kamar' => $parameter['kamar'],
+        'pegawai' => $UserData['data']->uid,
+        'remark' => $parameter['remark'],
+        'status' => $parameter['status'],
+        'created_at' => parent::format_date(),
+        'updated_at' => parent::format_date()
+      ))
+        ->execute();
+    }
+
+    return $data;
+  }
+
   private function edit_tipe($parameter)
   {
     $Authorization = new Authorization();
@@ -276,6 +312,7 @@ class Kamar extends Utility
       'uid' => $uid,
       'nomor' => $parameter['nomor'],
       'tipe' => $parameter['tipe'],
+      'status' => 'VC',
       'keterangan' => $parameter['keterangan'],
       'created_at' => parent::format_date(),
       'updated_at' => parent::format_date()
@@ -369,6 +406,145 @@ class Kamar extends Utility
     $autonum = intval($parameter['start']) + 1;
     foreach ($data['response_data'] as $key => $value) {
       $data['response_data'][$key]['autonum'] = $autonum;
+      $autonum++;
+    }
+
+    $itemTotal = self::$query->select('master_kamar_tipe', array(
+      'uid'
+    ))
+      ->where($paramData, $paramValue)
+      ->execute();
+
+    $data['recordsTotal'] = count($itemTotal['response_data']);
+    $data['recordsFiltered'] = count($itemTotal['response_data']);
+    $data['length'] = intval($parameter['length']);
+    $data['start'] = intval($parameter['start']);
+    return $data;
+  }
+
+  private function kamar_list_monitoring($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+      $paramData = array(
+        '(master_kamar.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+        'OR',
+        'master_kamar_tipe.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      );
+      $paramValue = array();
+    } else {
+      $paramData = array(
+        'master_kamar.deleted_at' => 'IS NULL'
+      );
+      $paramValue = array();
+    }
+
+    if ($parameter['length'] < 0) {
+      $data = self::$query->select('master_kamar', array(
+        'uid', 'nomor', 'tipe', 'keterangan', 'status'
+      ))
+        ->join('master_kamar_tipe', array(
+          'nama', 'kode'
+        ))
+        ->on(array(
+          array('master_kamar.tipe', '=', 'master_kamar_tipe.uid')
+        ))
+        ->order(array(
+          'nomor' => 'ASC'
+        ))
+        ->where($paramData, $paramValue)
+        ->execute();
+    } else {
+      $data = self::$query->select('master_kamar', array(
+        'uid', 'nomor', 'tipe', 'keterangan', 'status'
+      ))
+        ->join('master_kamar_tipe', array(
+          'nama', 'kode'
+        ))
+        ->on(array(
+          array('master_kamar.tipe', '=', 'master_kamar_tipe.uid')
+        ))
+        ->order(array(
+          'nomor' => 'ASC'
+        ))
+        ->where($paramData, $paramValue)
+        ->offset(intval($parameter['start']))
+        ->limit(intval($parameter['length']))
+        ->execute();
+    }
+
+    $data['response_draw'] = $parameter['draw'];
+    $autonum = intval($parameter['start']) + 1;
+    foreach ($data['response_data'] as $key => $value) {
+      $data['response_data'][$key]['autonum'] = $autonum;
+      // Check EA/ED
+      $Res = self::$query->select('reservasi', array(
+        'check_in', 'check_out', 'pax', 'check_in_remark', 'check_in_actual'
+      ))
+        ->join('customer', array(
+          'nama_depan', 'nama_belakang'
+        ))
+        ->on(array(
+          array('reservasi.customer', '=', 'customer.uid')
+        ))
+        ->where(array(
+          'reservasi.check_out_actual' => 'IS NULL',
+          'AND',
+          'reservasi.kamar' => '= ?'
+        ), array(
+          $value['uid']
+        ))
+        ->execute();
+      $data['response_data'][$key]['pax'] = 0;
+      $data['response_data'][$key]['check_in_remark'] = '';
+      $data['response_data'][$key]['nama_depan'] = '';
+      $data['response_data'][$key]['nama_belakang'] = '';
+      if (count($Res['response_data']) > 0) {
+        $data['response_data'][$key]['pax'] = $Res['response_data'][0]['pax'];
+        $data['response_data'][$key]['check_in_remark'] = $Res['response_data'][0]['check_in_remark'];
+        $data['response_data'][$key]['nama_depan'] = $Res['response_data'][0]['nama_depan'];
+        $data['response_data'][$key]['nama_belakang'] = $Res['response_data'][0]['nama_belakang'];
+
+        $dateArr = date('Y-m-d', strtotime($Res['response_data'][0]['check_in']));
+        $dateDep = date('Y-m-d', strtotime($Res['response_data'][0]['check_out']));
+        if ($dateArr === date('Y-m-d')) {
+          $data['response_data'][$key]['eaed'] = (isset($Res['response_data'][0]['check_in_actual']) && !empty($Res['response_data'][0]['check_in_actual'])) ? '' : 'EA';
+        } else if ($dateDep === date('Y-m-d')) {
+          $data['response_data'][$key]['eaed'] = 'ED';
+        } else if ($dateArr < date('Y-m-d')) { //Lewat Hari
+          $cleaning = self::$query->select('kamar_cleaning', array(
+            'id'
+          ))
+            ->where(array(
+              'kamar_cleaning.kamar' => '= ?',
+              'AND',
+              'kamar_cleaning.status' => '= ?'
+            ), array(
+              $value['uid'], 'OC'
+            ))
+            ->execute();
+          if (count($cleaning['response_data']) <= 0) {
+            $upKam = self::$query->update('master_kamar', array(
+              'status' => 'OD'
+            ))
+              ->where(array(
+                'master_kamar.uid' => '= ?'
+              ), array(
+                $value['uid']
+              ))
+              ->execute();
+            $data['response_data'][$key]['status'] = 'OD';
+          }
+          $data['response_data'][$key]['eaed'] = '-';
+        } else {
+          $data['response_data'][$key]['eaed'] = '-';
+        }
+      } else {
+        $data['response_data'][$key]['eaed'] = '-';
+      }
       $autonum++;
     }
 

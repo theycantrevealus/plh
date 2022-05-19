@@ -6,7 +6,7 @@ use PondokCoder\Authorization as Authorization;
 use PondokCoder\Query as Query;
 use PondokCoder\QueryException as QueryException;
 use PondokCoder\Utility as Utility;
-
+use Spipu\Html2Pdf\Tag\Html\Em;
 
 class Reservasi extends Utility
 {
@@ -39,6 +39,9 @@ class Reservasi extends Utility
       case 'edit_reservasi':
         return self::edit_reservasi($parameter);
         break;
+      case 'change_status':
+        return self::change_status($parameter);
+        break;
     }
   }
 
@@ -57,6 +60,51 @@ class Reservasi extends Utility
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  private function change_status($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    $old = self::reservasi_detail($parameter['uid']);
+    $data = self::$query->update('reservasi', array(
+      'status_rev' => $parameter['status']
+    ))
+      ->where(array(
+        'reservasi.uid' => '= ?'
+      ), array(
+        $parameter['uid']
+      ))
+      ->execute();
+    if ($data['response_result'] > 0) {
+      $log = parent::log(array(
+        'type' => 'activity',
+        'column' => array(
+          'unique_target',
+          'user_uid',
+          'table_name',
+          'action',
+          'old_value',
+          'new_value',
+          'logged_at',
+          'status',
+          'login_id'
+        ),
+        'value' => array(
+          $parameter['uid'],
+          $UserData['data']->uid,
+          'reservasi',
+          'U',
+          json_encode($old['response_data'][0]),
+          json_encode($parameter),
+          parent::format_date(),
+          'N',
+          $UserData['data']->log_id
+        ),
+        'class' => __CLASS__
+      ));
+    }
+    return $data;
   }
 
   private function reservasi_detail($parameter)
@@ -100,9 +148,9 @@ class Reservasi extends Utility
       ->join('segmentasi', array(
         'msscode', 'deskripsi as nama_segmentasi'
       ))
-      ->join('company', array(
-        'nama as nama_company', 'kode as kode_company'
-      ))
+      // ->join('company', array(
+      //   'nama as nama_company', 'kode as kode_company'
+      // ))
       ->join('customer', array(
         'id_number', 'nama_depan', 'nama_belakang', 'panggilan', 'tanggal_lahir', 'alamat', 'phone', 'email'
       ))
@@ -121,7 +169,7 @@ class Reservasi extends Utility
       ->on(array(
         array('reservasi.tipe_kamar', '=', 'master_kamar_tipe.uid'),
         array('reservasi.segmentasi', '=', 'segmentasi.uid'),
-        array('reservasi.company', '=', 'company.uid'),
+        // array('reservasi.company', '=', 'company.uid'),
         array('reservasi.customer', '=', 'customer.uid'),
         array('customer.panggilan', '=', 'terminologi_item.id'),
         array('reservasi.rate_code', '=', 'master_kamar_rate.uid'),
@@ -154,6 +202,21 @@ class Reservasi extends Utility
       $record['response_data'][$RKey]['logged_at'] = date('d F Y | H:i', strtotime($RValue['logged_at']));
     }
     $data['log_change'] = $record['response_data'];
+    foreach ($data['response_data'] as $key => $value) {
+      if (isset($value['company']) && !empty($value['company'])) {
+        $Company = self::$query->select('company', array(
+          'nama', 'kode'
+        ))
+          ->where(array(
+            'company.uid' => '= ?'
+          ), array(
+            $value['company']
+          ))
+          ->execute();
+        $data['response_data'][$key]['kode_company'] = $Company['response_data'][0]['kode'];
+        $data['response_data'][$key]['nama_company'] = $Company['response_data'][0]['nama'];
+      }
+    }
     return $data;
   }
 
@@ -162,28 +225,66 @@ class Reservasi extends Utility
     $Authorization = new Authorization();
     $UserData = $Authorization->readBearerToken($parameter['access_token']);
     if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
-      $paramData = array(
-        '(reservasi.no_reservasi' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
-        'OR',
-        'customer.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
-        'AND',
-        'reservasi.deleted_at' => 'IS NULL',
-        'AND',
-        'reservasi.kamar' => 'IS NULL'
-      );
-      $paramValue = array();
+      if (isset($parameter['paramSet'])) {
+        if ($parameter['paramSet'] === "today") {
+          $paramData = array(
+            '(reservasi.no_reservasi' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+            'OR',
+            'customer.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+            'AND',
+            'reservasi.deleted_at' => 'IS NULL',
+            'AND',
+            'reservasi.kamar' => 'IS NULL',
+            'AND',
+            '(reservasi.created_at' => '>= current_date::timestamp',
+            'AND',
+            'reservasi.created_at' => '< current_date::timestamp + interval \'1 day\')'
+          );
+          $paramValue = array();
+        }
+      } else {
+        $paramData = array(
+          '(reservasi.no_reservasi' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+          'OR',
+          'customer.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+          'AND',
+          'reservasi.deleted_at' => 'IS NULL',
+          'AND',
+          'reservasi.status_rev' => 'IS NULL',
+          'AND',
+          'reservasi.kamar' => 'IS NULL'
+        );
+        $paramValue = array();
+      }
     } else {
-      $paramData = array(
-        'reservasi.deleted_at' => 'IS NULL',
-        'AND',
-        'reservasi.kamar' => 'IS NULL'
-      );
-      $paramValue = array();
+      if (isset($parameter['paramSet'])) {
+        if ($parameter['paramSet'] === "today") {
+          $paramData = array(
+            'reservasi.deleted_at' => 'IS NULL',
+            'AND',
+            'reservasi.kamar' => 'IS NULL',
+            'AND',
+            '(reservasi.created_at' => '>= current_date::timestamp',
+            'AND',
+            'reservasi.created_at' => '< current_date::timestamp + interval \'1 day\')'
+          );
+          $paramValue = array();
+        }
+      } else {
+        $paramData = array(
+          'reservasi.deleted_at' => 'IS NULL',
+          'AND',
+          'reservasi.status_rev' => 'IS NULL',
+          'AND',
+          'reservasi.kamar' => 'IS NULL'
+        );
+        $paramValue = array();
+      }
     }
 
     if ($parameter['length'] < 0) {
       $data = self::$query->select('reservasi', array(
-        'uid', 'no_reservasi', 'check_in', 'check_out', 'vip', 'company'
+        'uid', 'no_reservasi', 'check_in', 'check_out', 'vip', 'company', 'status_rev'
       ))
         ->join('customer', array(
           'nama_depan', 'nama_belakang'
@@ -195,7 +296,7 @@ class Reservasi extends Utility
         ->execute();
     } else {
       $data = self::$query->select('reservasi', array(
-        'uid', 'no_reservasi', 'check_in', 'check_out', 'vip', 'company'
+        'uid', 'no_reservasi', 'check_in', 'check_out', 'vip', 'company', 'status_rev'
       ))
         ->join('customer', array(
           'nama_depan', 'nama_belakang'
@@ -250,16 +351,24 @@ class Reservasi extends Utility
         'AND',
         'reservasi.deleted_at' => 'IS NULL',
         'AND',
-        'reservasi.kamar' => 'IS NOT NULL'
+        'reservasi.created_at' => 'BETWEEN ? AND ?',
+        'AND',
+        '(reservasi.kamar' => 'IS NOT NULL',
+        'OR',
+        'reservasi.status_rev' => 'IS NOT NULL)'
       );
-      $paramValue = array();
+      $paramValue = array($parameter['from'], $parameter['to']);
     } else {
       $paramData = array(
         'reservasi.deleted_at' => 'IS NULL',
         'AND',
-        'reservasi.kamar' => 'IS NOT NULL'
+        'reservasi.created_at' => 'BETWEEN ? AND ?',
+        'AND',
+        '(reservasi.kamar' => 'IS NOT NULL',
+        'OR',
+        'reservasi.status_rev' => 'IS NOT NULL)'
       );
-      $paramValue = array();
+      $paramValue = array($parameter['from'], $parameter['to']);
     }
 
     if ($parameter['length'] < 0) {
@@ -273,6 +382,9 @@ class Reservasi extends Utility
           array('reservasi.customer', '=', 'customer.uid')
         ))
         ->where($paramData, $paramValue)
+        ->order(array(
+          'reservasi.no_reservasi' => 'ASC'
+        ))
         ->execute();
     } else {
       $data = self::$query->select('reservasi', array(
@@ -285,6 +397,9 @@ class Reservasi extends Utility
           array('reservasi.customer', '=', 'customer.uid')
         ))
         ->where($paramData, $paramValue)
+        ->order(array(
+          'reservasi.no_reservasi' => 'ASC'
+        ))
         ->offset(intval($parameter['start']))
         ->limit(intval($parameter['length']))
         ->execute();

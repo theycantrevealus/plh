@@ -138,6 +138,8 @@
           request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
         },
         success: function(response) {
+          console.clear();
+          console.log(response);
           var data = response.response_package.response_data[0];
           $("#cap_balance h4").html(number_format(data.balance, 2, ".", ","));
           $("#cap_room_number").html(data.nomor_kamar);
@@ -355,12 +357,12 @@
               <td id="cap_card_valid"></td>
             </tr>
             <tr>
-              <td colspan="6"></td>
               <td><span class="wrap_content">Balance</span></td>
               <td class="wrap_content">:</td>
               <td id="cap_balance">
                 <h4></h4>
               </td>
+              <td colspan="6"></td>
             </tr>
           </table>
         </div>

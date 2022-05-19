@@ -7,6 +7,15 @@
     var selectedKamar = "";
     var MODE = "tambah";
 
+    function getDateRange(target) {
+      var rangeKwitansi = $(target).val().split(" to ");
+      if (rangeKwitansi.length > 1) {
+        return rangeKwitansi;
+      } else {
+        return [rangeKwitansi, rangeKwitansi];
+      }
+    }
+
     $("#btnTambahReservasi").click(function() {
       MODE = "tambah";
       selectedKamar = "";
@@ -16,6 +25,10 @@
 
       $("#changeLog").hide();
       $("#modal-reservasi").modal("show");
+    });
+
+    $("#range-reservasi").change(function() {
+      DTRH.ajax.reload();
     });
 
     var DTRH = $("#table-history").DataTable({
@@ -36,6 +49,8 @@
         },
         data: function(d) {
           d.request = "reservasi_list_history";
+          d.from = getDateRange("#range-reservasi")[0];
+          d.to = getDateRange("#range-reservasi")[1];
         },
         dataSrc: function(response) {
           var returnData = [];
@@ -81,7 +96,7 @@
       "columns": [{
           "data": null,
           render: function(data, type, row, meta) {
-            return "<span class=\"autonum\">" + row.autonum + " " + ((row.vip === "Y") ? "<i class=\"pull-right fa fa-star text-warning\"></i>" : "") + "</span>";
+            return "<span class=\"wrap_content\">" + row.no_reservasi + " " + ((row.vip === "Y") ? "<i class=\"pull-right fa fa-star text-warning\"></i>" : "") + "</span>";
           }
         },
         {
@@ -237,13 +252,17 @@
           request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
         },
         success: function(response) {
+          console.log(response);
           reset_form();
           $("#modal-reservasi").modal("show");
           var log_change = response.response_package.log_change;
           $("#changeLog table tbody tr").remove();
           for (var a in log_change) {
+
             var dataSet = JSON.parse(log_change[a].old_value);
-            $("#changeLog table tbody").append("<tr><td><span class=\"wrap_content\">" + log_change[a].logged_at + "</span></td><td><span class=\"wrap_content\">" + log_change[a].user.nama + "</span></td><td>" + dataSet.alasan_edit + "</td></tr>");
+            if (dataSet !== null) {
+              $("#changeLog table tbody").append("<tr><td><span class=\"wrap_content\">" + log_change[a].logged_at + "</span></td><td><span class=\"wrap_content\">" + log_change[a].user.nama + "</span></td><td>" + dataSet.alasan_edit + "</td></tr>");
+            }
           }
           var data = response.response_package.response_data[0];
 
@@ -852,7 +871,11 @@
     });
 
     $("#btnProsesCheckIn").click(function() {
+      var first_date = $("#txt_tanggal_arrival").datepicker("getDate");
+      var arrival = $.datepicker.formatDate("yy-mm-dd", first_date);
       if (selectedKamar !== "") {
+
+
         Swal.fire({
           title: "Proses Check In?",
           showDenyButton: true,
@@ -867,6 +890,8 @@
               data: {
                 request: 'tambah_folio',
                 reservasi: selectedUID,
+                arrival: arrival,
+                night: $("#txt_night").inputmask("unmaskedvalue"),
                 deposit: $("#txt_deposit").inputmask("unmaskedvalue"),
                 rate_value: $("#txt_rate_price").inputmask("unmaskedvalue"),
                 kamar: selectedKamar

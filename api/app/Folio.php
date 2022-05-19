@@ -116,9 +116,9 @@ class Folio extends Utility
       ->join('master_accounting_payment', array(
         'kode as kode_payment', 'keterangan as nama_payment'
       ))
-      ->join('company', array(
-        'kode as kode_company', 'nama as nama_company'
-      ))
+      // ->join('company', array(
+      //   'kode as kode_company', 'nama as nama_company'
+      // ))
       ->on(array(
         array('folio.reservasi', '=', 'reservasi.uid'),
         array('reservasi.customer', '=', 'customer.uid'),
@@ -126,7 +126,7 @@ class Folio extends Utility
         array('master_kamar.tipe', '=', 'master_kamar_tipe.uid'),
         array('reservasi.rate_code', '=', 'master_kamar_rate.uid'),
         array('reservasi.metode_payment', '=', 'master_accounting_payment.uid'),
-        array('reservasi.company', '=', 'company.uid')
+        // array('reservasi.company', '=', 'company.uid')
       ))
       ->where(array(
         'folio.uid' => '= ?'
@@ -134,6 +134,21 @@ class Folio extends Utility
         $parameter
       ))
       ->execute();
+    foreach ($data['response_data'] as $key => $value) {
+      if (isset($value['company']) && !empty($value['company'])) {
+        $Company = self::$query->select('company', array(
+          'nama', 'kode'
+        ))
+          ->where(array(
+            'company.uid' => '= ?'
+          ), array(
+            $value['company']
+          ))
+          ->execute();
+        $data['response_data'][$key]['kode_company'] = $Company['response_data'][0]['kode'];
+        $data['response_data'][$key]['nama_company'] = $Company['response_data'][0]['nama'];
+      }
+    }
     return $data;
   }
 
@@ -296,7 +311,8 @@ class Folio extends Utility
       'reservasi' => $parameter['reservasi'],
       'no_folio' => str_pad((count($nomor['response_data']) + 1), 5, '0', STR_PAD_LEFT),
       'kamar' => $parameter['kamar'],
-      'balance' => floatval($parameter['deposit']) - floatval($parameter['rate_value']),
+      // 'balance' => floatval($parameter['deposit']) - floatval($parameter['rate_value']),
+      'balance' => floatval($parameter['deposit']),
       'created_at' => parent::format_date(),
       'updated_at' => parent::format_date()
     ))
@@ -317,22 +333,23 @@ class Folio extends Utility
       ))
         ->execute();
       // Charge Rule rate   __RULE_TRANS_RATE_CHARGE__
-      $rate_code = self::$query->insert('folio_transact', array(
-        'folio' => $uid,
-        'transcode' => __RULE_TRANS_RATE_CHARGE__,
-        'qty' => 1,
-        'deskripsi' => 'Charge Rate Code',
-        'remark' => 'Charge Rate Code',
-        'price' => $parameter['rate_value'],
-        'add_by' => $UserData['data']->uid,
-        'created_at' => parent::format_date(),
-        'updated_at' => parent::format_date()
-      ))
-        ->execute();
+      // $rate_code = self::$query->insert('folio_transact', array(
+      //   'folio' => $uid,
+      //   'transcode' => __RULE_TRANS_RATE_CHARGE__,
+      //   'qty' => 1,
+      //   'deskripsi' => 'Charge Rate Code',
+      //   'remark' => 'Charge Rate Code',
+      //   'price' => $parameter['rate_value'],
+      //   'add_by' => $UserData['data']->uid,
+      //   'created_at' => parent::format_date(),
+      //   'updated_at' => parent::format_date()
+      // ))
+      //   ->execute();
 
       // Ubah Actual Check In
       $updateRes = self::$query->update('reservasi', array(
         'check_in_actual' => parent::format_date(),
+        'status_rev' => 'I',
         'kamar' => $parameter['kamar']
       ))
         ->where(array(
@@ -341,6 +358,21 @@ class Folio extends Utility
           $parameter['reservasi']
         ))
         ->execute();
+
+      // Iterate Room Post Job
+      $from = date('Y-m-d', strtotime($parameter['arrival']));
+      for ($i = 1; $i <= intval($parameter['night']); $i++) {
+        $RPost = self::$query->insert('room_posting', array(
+          'uid' => parent::gen_uuid(),
+          'tanggal' => $from,
+          'folio' => $uid,
+          'created_at' => parent::format_date(),
+          'updated_at' => parent::format_date()
+        ))
+          ->execute();
+        $repeat = strtotime("+1 day", strtotime($from));
+        $from = date('Y-m-d', $repeat);
+      }
 
       // Ubah Kamar jadi OC
       $updateKamar = self::$query->update('master_kamar', array(

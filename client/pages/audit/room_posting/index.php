@@ -4,7 +4,7 @@
       <nav aria-label="breadcrumb">
         <ol class="breadcrumb mb-0">
           <li class="breadcrumb-item"><a href="<?php echo __HOSTNAME__; ?>/">Home</a></li>
-          <li class="breadcrumb-item active" aria-current="page">Reservasi</li>
+          <li class="breadcrumb-item active" aria-current="page">Room Posting</li>
         </ol>
       </nav>
     </div>
@@ -14,10 +14,7 @@
 <div class="container-fluid page__container">
   <div class="card">
     <div class="card-header card-header-large bg-white d-flex align-items-center">
-      <h5 class="card-header__title flex m-0">Reservasi</h5>
-      <button id="btnTambahReservasi" class="btn btn-info ml-3 pull-right">
-        <i class="fa fa-plus"></i> Tambah Reservasi
-      </button>
+      <h5 class="card-header__title flex m-0">Room Posting</h5>
     </div>
     <div class="card-body">
       <div class="z-0">
@@ -27,7 +24,7 @@
               <span class="nav-link__count">
                 <i class="fa fa-address-book"></i>
               </span>
-              Reservasi
+              Room Posting Today
             </a>
           </li>
           <li class="nav-item">
@@ -35,20 +32,21 @@
               <span class="nav-link__count">
                 <i class="fa fa-address-book"></i>
               </span>
-              History
+              Room Posting History
             </a>
           </li>
         </ul>
       </div>
       <div class="card card-body tab-content">
         <div class="tab-pane show active fade" id="tab-1">
-          <table class="table table-bordered" id="table-tipe">
+          <table class="table table-bordered" id="table-romm-posting">
             <thead class="thead-dark">
               <tr>
-                <th class="wrap_content">No</th>
+                <th class="wrap_content">No Reservasi</th>
+                <th class="wrap_content">No Folio</th>
                 <th>Guest</th>
-                <th class="wrap_content">Check In</th>
-                <th class="wrap_content">Check Out</th>
+                <th class="wrap_content">Kamar</th>
+                <th class="wrap_content">Rate</th>
                 <th class="wrap_content">Aksi</th>
               </tr>
             </thead>
@@ -58,31 +56,21 @@
           </table>
         </div>
         <div class="tab-pane show fade" id="tab-2">
-          <div class="row">
-            <div class="col-6"></div>
-            <div class="col-6">
-              Filter
-              <input id="range-reservasi" type="text" class="form-control" placeholder="Flatpickr range example" data-toggle="flatpickr" data-flatpickr-mode="range" value="<?php echo $day->format('Y-m-1'); ?> to <?php echo $day->format('Y-m-d'); ?>" />
-            </div>
+          <table class="table table-bordered" id="table-romm-posting-history">
+            <thead class="thead-dark">
+              <tr>
+                <th class="wrap_content">No Reservasi</th>
+                <th class="wrap_content">No Folio</th>
+                <th>Guest</th>
+                <th class="wrap_content">No. Kamar</th>
+                <th class="wrap_content">Rate</th>
+                <th class="wrap_content">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
 
-            <div class="col-12">
-              <br /><br />
-              <table class="table table-bordered" id="table-history">
-                <thead class="thead-dark">
-                  <tr>
-                    <th class="wrap_content">No</th>
-                    <th>Guest</th>
-                    <th class="wrap_content">Check In</th>
-                    <th class="wrap_content">Check Out</th>
-                    <th class="wrap_content">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-
-                </tbody>
-              </table>
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

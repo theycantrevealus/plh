@@ -30,6 +30,15 @@ class Accounting extends Utility
       case 'account_list':
         return self::account_list($parameter);
         break;
+      case 'tax_list':
+        return self::tax_list($parameter);
+        break;
+      case 'tambah_tax':
+        return self::tambah_tax($parameter);
+        break;
+      case 'edit_tax':
+        return self::edit_tax($parameter);
+        break;
       case 'payment_method_list':
         return self::payment_method_list($parameter);
         break;
@@ -57,6 +66,9 @@ class Accounting extends Utility
       case 'payment_method':
         return self::payment_method($parameter[7]);
         break;
+      case 'tax':
+        return self::hapus_tax($parameter[7]);
+        break;
       default:
         return $parameter;
     }
@@ -73,12 +85,27 @@ class Accounting extends Utility
         case 'get_transcode':
           return self::get_transcode();
           break;
+        case 'tax':
+          return self::get_tax();
+          break;
         default:
           return 'Unknown request';
       }
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  public function get_tax()
+  {
+    $data = self::$query->select('master_tax', array(
+      'uid', 'nama', 'kode', 'nilai'
+    ))
+      ->where(array(
+        'master_tax.deleted_at' => 'IS NULL'
+      ), array())
+      ->execute();
+    return $data;
   }
 
   private function get_transcode()
@@ -246,6 +273,47 @@ class Accounting extends Utility
             $parameter,
             $UserData['data']->uid,
             'master_accounting_payment',
+            'D',
+            parent::format_date(),
+            'N',
+            $UserData['data']->log_id
+          ),
+          'class' => __CLASS__
+        )
+      );
+    }
+    return $data;
+  }
+
+  private function hapus_tax($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+
+    $data = self::$query->delete('master_tax')
+      ->where(array(
+        'master_tax.uid' => '= ?'
+      ), array(
+        $parameter
+      ))
+      ->execute();
+    if ($data['response_result'] > 0) {
+      $log = parent::log(
+        array(
+          'type' => 'activity',
+          'column' => array(
+            'unique_target',
+            'user_uid',
+            'table_name',
+            'action',
+            'logged_at',
+            'status',
+            'login_id'
+          ),
+          'value' => array(
+            $parameter,
+            $UserData['data']->uid,
+            'master_tax',
             'D',
             parent::format_date(),
             'N',
@@ -443,6 +511,166 @@ class Accounting extends Utility
     }
 
     $itemTotal = self::$query->select('master_accounting_payment', array(
+      'uid'
+    ))
+      ->where($paramData, $paramValue)
+      ->execute();
+
+    $data['recordsTotal'] = count($itemTotal['response_data']);
+    $data['recordsFiltered'] = count($itemTotal['response_data']);
+    $data['length'] = intval($parameter['length']);
+    $data['start'] = intval($parameter['start']);
+    return $data;
+  }
+
+  private function detail_tax($parameter)
+  {
+    $data = self::$query->select('master_tax', array(
+      'uid', 'nama', 'kode', 'nilai'
+    ))
+      ->where(array(
+        'master_tax.uid' => '= ?'
+      ), array(
+        $parameter
+      ))
+      ->execute();
+    return $data;
+  }
+
+  private function edit_tax($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    $old = self::detail_tax($parameter['uid']);
+    $data = self::$query->update('master_tax', array(
+      'kode' => $parameter['kode'],
+      'nama' => $parameter['nama'],
+      'nilai' => $parameter['nilai'],
+      'updated_at' => parent::format_date()
+    ))
+      ->where(array(
+        'master_tax.uid' => '= ?'
+      ), array(
+        $parameter['uid']
+      ))
+      ->execute();
+
+    if ($data['response_result'] > 0) {
+      $log = parent::log(array(
+        'type' => 'activity',
+        'column' => array(
+          'unique_target',
+          'user_uid',
+          'table_name',
+          'action',
+          'old_value',
+          'new_value',
+          'logged_at',
+          'status',
+          'login_id'
+        ),
+        'value' => array(
+          $parameter['uid'],
+          $UserData['data']->uid,
+          'master_tax',
+          'U',
+          json_encode($old['response_data'][0]),
+          json_encode($parameter),
+          parent::format_date(),
+          'N',
+          $UserData['data']->log_id
+        ),
+        'class' => __CLASS__
+      ));
+    }
+    return $data;
+  }
+
+  private function tambah_tax($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    $uid = parent::gen_uuid();
+    $data = self::$query->insert('master_tax', array(
+      'uid' => $uid,
+      'kode' => $parameter['kode'],
+      'nama' => $parameter['nama'],
+      'nilai' => $parameter['nilai'],
+      'created_at' => parent::format_date(),
+      'updated_at' => parent::format_date()
+    ))
+      ->execute();
+    if ($data['response_result'] > 0) {
+      $log = parent::log(array(
+        'type' => 'activity',
+        'column' => array(
+          'unique_target',
+          'user_uid',
+          'table_name',
+          'action',
+          'logged_at',
+          'status',
+          'login_id'
+        ),
+        'value' => array(
+          $parameter['uid'],
+          $UserData['data']->uid,
+          'master_tax',
+          'I',
+          parent::format_date(),
+          'N',
+          $UserData['data']->log_id
+        ),
+        'class' => __CLASS__
+      ));
+    }
+    return $data;
+  }
+
+  private function tax_list($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+      $paramData = array(
+        '(master_tax.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+        'OR',
+        'master_tax.kode' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+        'AND',
+        'master_tax.deleted_at' => 'IS NULL'
+      );
+      $paramValue = array();
+    } else {
+      $paramData = array(
+        'master_tax.deleted_at' => 'IS NULL'
+      );
+      $paramValue = array();
+    }
+
+    if ($parameter['length'] < 0) {
+      $data = self::$query->select('master_tax', array(
+        'uid', 'kode', 'nama', 'nilai'
+      ))
+        ->where($paramData, $paramValue)
+        ->execute();
+    } else {
+      $data = self::$query->select('master_tax', array(
+        'uid', 'kode', 'nama', 'nilai'
+      ))
+        ->where($paramData, $paramValue)
+        ->offset(intval($parameter['start']))
+        ->limit(intval($parameter['length']))
+        ->execute();
+    }
+
+    $data['response_draw'] = $parameter['draw'];
+    $autonum = intval($parameter['start']) + 1;
+    foreach ($data['response_data'] as $key => $value) {
+      $data['response_data'][$key]['autonum'] = $autonum;
+      $autonum++;
+    }
+
+    $itemTotal = self::$query->select('master_tax', array(
       'uid'
     ))
       ->where($paramData, $paramValue)

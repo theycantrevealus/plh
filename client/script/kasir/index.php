@@ -4,6 +4,130 @@
     var selectedDBCR = "";
     var selectedKeterangan = "";
     var selectedFolio = "";
+    var selectedIsTax = "N";
+    var selectedIsService = "N";
+    var DTH = $("#table-history").DataTable({
+      processing: true,
+      serverSide: true,
+      sPaginationType: "full_numbers",
+      bPaginate: true,
+      lengthMenu: [
+        [20, 50, -1],
+        [20, 50, "All"]
+      ],
+      serverMethod: "POST",
+      "ajax": {
+        url: __HOSTAPI__ + "/Folio",
+        type: "POST",
+        headers: {
+          Authorization: "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>
+        },
+        data: function(d) {
+          d.request = "list_folio_history";
+        },
+        dataSrc: function(response) {
+          var returnData = [];
+          var rawData = [];
+          if (
+            response === undefined ||
+            response === null ||
+            response.response_package === undefined ||
+            response.response_package === null) {
+            rawData = [];
+            response.draw = 1;
+            response.recordsTotal = 0;
+            response.recordsFiltered = 0;
+          } else {
+            rawData = response.response_package.response_data;
+            for (var polKey in rawData) {
+              returnData.push(rawData[polKey]);
+            }
+
+            response.draw = parseInt(response.response_package.response_draw);
+            response.recordsTotal = response.response_package.recordsTotal;
+            response.recordsFiltered = response.response_package.recordsFiltered;
+          }
+          return returnData;
+        }
+      },
+      autoWidth: false,
+      aaSorting: [
+        [0, "asc"]
+      ],
+      "columnDefs": [{
+        "targets": 0,
+        "className": "dt-body-left"
+      }],
+      "rowCallback": function(row, data, index) {
+        var harga = parseFloat(data.harga);
+        for (const a in data.detail) {
+          harga += parseFloat(data.detail[a].harga);
+        }
+
+        $("td .harga_set", row).html(number_format(harga, 2, ".", ",")).attr("id", "harga_rate_" + data.uid);
+      },
+      "columns": [{
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + row.no_reservasi + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + row.no_folio + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span>" + row.nama_depan + " " + row.nama_belakang + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + row.nomor_kamar + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + row.check_in + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + row.check_out + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<span class=\"wrap_content\">" + number_format(row.balance, 2, ".", ",") + "</span>";
+          }
+        },
+        {
+          "data": null,
+          render: function(data, type, row, meta) {
+            return "<div class=\"btn-group wrap_content\" role=\"group\" aria-label=\"Basic example\">" +
+              "<button id=\"tipe_edit_" + row.uid + "\" class=\"btn btn-info btn-sm btn-edit-reservasi\">" +
+              "<span><i class=\"fa fa-eye\"></i> Detail</span>" +
+              "</button>" +
+              "<button id=\"kwitansi_" + row.uid + "\" class=\"btn btn-info btn-sm btn-cetak-kwitansi\">" +
+              "<span><i class=\"fa fa-eye\"></i> Detail</span>" +
+              "</button>" +
+              "</div>";
+          }
+        }
+      ]
+    });
+
+    $("body").on("click", ".btn-cetak-kwitansi", function() {
+      //
+    });
+
     var DT = $("#table-folio").DataTable({
       processing: true,
       serverSide: true,
@@ -138,10 +262,8 @@
           request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
         },
         success: function(response) {
-          console.clear();
-          console.log(response);
           var data = response.response_package.response_data[0];
-          $("#cap_balance h4").html(number_format(data.balance, 2, ".", ","));
+          $("#cap_balance h4").html(number_format(data.balance, 2, ".", ",")).attr("setter-balance", data.balance);
           $("#cap_room_number").html(data.nomor_kamar);
           $("#cap_room_type").html(data.kode_tipe + " - " + data.nama_tipe);
           $("#cap_rate").html(data.kode_rate);
@@ -153,7 +275,11 @@
           $("#cap_card_num").html(data.card_number);
           $("#cap_card_valid").html(data.card_valid_until);
           $("#cap_pax").html(data.pax);
-          $("#cap_company").html(data.kode_company + " - " + data.nama_company);
+          if (data.kode_company === undefined && data.nama_company === undefined) {
+            $("#cap_company").html("-");
+          } else {
+            $("#cap_company").html(data.kode_company + " - " + data.nama_company);
+          }
           $("#modal-folio").modal("show");
 
           refresh_translist(data.uid);
@@ -176,21 +302,30 @@
           request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
         },
         success: function(response) {
+          var balance = 0;
+          var deb = 0;
+          var kre = 0;
           var data = response.response_package.response_data;
           for (var a in data) {
+            var priceSet = (parseFloat(data[a].final_price) > 0) ? data[a].final_price : data[a].price;
+            deb += parseFloat((data[a].transcode.dbcr === "D") ? priceSet : 0);
+            kre += parseFloat((data[a].transcode.dbcr === "K") ? priceSet : 0);
 
-            var price = number_format(data[a].price, 2, ".", ",");
+            var price = number_format(priceSet, 2, ".", ",");
             $("#entry-trans tbody").append("<tr>" +
               "<td><span class=\"wrap_content\">" + data[a].created_at + "</span></td>" +
-              "<td><span class=\"wrap_content\"></span>" + data[a].transcode.kode + "</td>" +
+              "<td class=\"text-right\"><b class=\"wrap_content\">" + data[a].transcode.kode + "</b></td>" +
               "<td>" + ((data[a].deskripsi === undefined || data[a].deskripsi === null) ? data[a].transcode.keterangan : data[a].deskripsi) + "</td>" +
               "<td>" + data[a].remark + "</td>" +
-              "<td><span class=\"wrap_content\">" + ((data[a].transcode.dbcr === "K") ? price : "") + "</span></td>" +
               "<td><span class=\"wrap_content\">" + ((data[a].transcode.dbcr === "D") ? price : "") + "</span></td>" +
+              "<td><span class=\"wrap_content\">" + ((data[a].transcode.dbcr === "K") ? price : "") + "</span></td>" +
               "<td><span class=\"wrap_content\">FO</span></td>" +
               "<td><span class=\"wrap_content\">" + data[a].add_by.nama + "</span></td>" +
               "</tr>");
+
           }
+          balance = deb - kre;
+          $("#cap_balance h4").html(number_format(balance, 2, ".", ",")).attr("setter-balance", balance);
         }
       });
     }
@@ -205,6 +340,7 @@
         if (result.isConfirmed) {
           var deskripsi = $("#txt_trans_desc").val();
           var transval = $("#txt_trans_value").inputmask("unmaskedvalue");
+          var transval_final = $("#txt_trans_value_applied").inputmask("unmaskedvalue");
           var remark = $("#txt_trans_remark").val();
 
           $.ajax({
@@ -217,6 +353,7 @@
               transcode: selectedTransCode,
               deskripsi: deskripsi,
               transval: transval,
+              transval_final: transval_final,
               remark: remark
             },
             beforeSend: function(request) {
@@ -227,6 +364,7 @@
                 refresh_folio_detaik(selectedFolio);
                 $("#txt_trans_desc").val("");
                 $("#txt_trans_value").inputmask("setvalue", 0);
+                $("#txt_trans_value_applied").inputmask("setvalue", 0);
                 $("#txt_trans_remark").val("");
                 DT.ajax.reload();
                 $("#form-transcode").modal("hide");
@@ -271,6 +409,8 @@
                 text: item.kode,
                 dbcr: item.dbcr,
                 keterangan: item.keterangan,
+                apply_tax: item.apply_tax,
+                apply_service: item.apply_service,
                 id: item.uid
               }
             })
@@ -282,9 +422,34 @@
       selectedDBCR = data.dbcr;
       selectedTransCode = data.id;
       selectedKeterangan = data.keterangan;
+      selectedIsTax = data.apply_tax;
+      selectedIsService = data.apply_service;
+      if (data.apply_tax === "Y") {
+        $("#isTax").removeClass("fa-times text-danger").addClass("fa-check text-success");
+      } else {
+        $("#isTax").addClass("fa-times text-danger").removeClass("fa-check text-success");
+      }
+
+      if (data.apply_service === "Y") {
+        $("#isService").removeClass("fa-times text-danger").addClass("fa-check text-success");
+      } else {
+        $("#isService").addClass("fa-times text-danger").removeClass("fa-check text-success");
+      }
+
       $("#txt_trans_desc").val(data.keterangan);
 
       $("#txt_trans_value").focus();
+    });
+
+    $("#txt_trans_value_applied").inputmask({
+      alias: 'decimal',
+      rightAlign: true,
+      placeholder: "0.00",
+      prefix: "",
+      allowMinus: true,
+      groupSeparator: ".",
+      autoGroup: false,
+      digitsOptional: true
     });
 
     $("#txt_trans_value").inputmask({
@@ -292,9 +457,62 @@
       rightAlign: true,
       placeholder: "0.00",
       prefix: "",
+      allowMinus: true,
       groupSeparator: ".",
       autoGroup: false,
       digitsOptional: true
+    }).keyup(function() {
+      var getVal = $(this).inputmask("unmaskedvalue");
+      var finalPrice = parseFloat(getVal);
+      if (selectedIsTax === 'Y') {
+        finalPrice += parseFloat(getVal * __TAX_VAL__ / 100);
+      }
+
+      if (selectedIsService === 'Y') {
+        finalPrice += parseFloat(getVal * __SER_VAL__ / 100);
+      }
+      $("#txt_trans_value_applied").inputmask("setvalue", number_format(finalPrice, 2, ".", ","));
+    });
+
+    $("#btnCheckOut").click(function() {
+      var balance = parseFloat($("#cap_balance h4").attr("setter-balance"));
+      if (balance !== 0) {
+        Swal.fire(
+          "Check Out",
+          "Balance harus 0. Mohon selesaikan semua transaksi yang tertinggal",
+          "warning"
+        ).then((result) => {
+          $("#form-transcode").modal("show");
+        });
+      } else {
+        Swal.fire({
+          title: "Proses Check Out?",
+          showDenyButton: true,
+          confirmButtonText: "Ya",
+          denyButtonText: "Batal",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            $.ajax({
+              async: false,
+              url: __HOSTAPI__ + "/Folio",
+              type: "POST",
+              data: {
+                request: "check_out",
+                folio: selectedFolio
+              },
+              beforeSend: function(request) {
+                request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+              },
+              success: function(response) {
+                if (response.response_package.response_result > 0) {
+                  DT.ajax.reload();
+                  $("#modal-folio").modal("hide");
+                }
+              }
+            });
+          }
+        });
+      }
     });
 
   });
@@ -370,8 +588,8 @@
           <br /><br />
           <button class="pull-right btn btn-sm btn-info" id="btnAddTrans"><i class="fa fa-plus"></i> Tambah Transaksi</button>
         </div>
-        <div class="col-12">
-          <hr />
+        <div class="col-12 table-responsive" style="min-height: 300px; height: 300px; overflow-y: scroll;">
+          <br />
           <table class="table" id="entry-trans">
             <thead class="thead-dark">
               <tr>
@@ -391,6 +609,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" data-dismiss="modal">Kembali</button>
+        <button type="button" class="btn btn-warning" id="btnCheckOut"><i class="fa fa-sign-out-alt"></i> Check Out</button>
       </div>
     </div>
   </div>
@@ -638,9 +857,21 @@
             <label for="txt_trans_desc">Deskripsi</label>
             <input type="text" class="form-control" id="txt_trans_desc" />
           </div>
-          <div class="col-12 form-group">
+          <div class="col-4 form-group">
             <label for="txt_trans_value">Nilai</label>
             <input type="text" class="form-control" id="txt_trans_value" />
+          </div>
+          <div class="col-2">
+            <label>Tax</label>
+            <h4><i id="isTax" class="text-danger fa fa-times"></i></h4>
+          </div>
+          <div class="col-2">
+            <label>Service</label>
+            <h4><i id="isService" class="text-danger fa fa-times"></i></h4>
+          </div>
+          <div class="col-4 form-group">
+            <label for="txt_trans_value_applied">After Tax/Service</label>
+            <input type="text" class="form-control" id="txt_trans_value_applied" readonly />
           </div>
           <div class="col-12 form-group">
             <label for="txt_trans_remark">Remark</label>

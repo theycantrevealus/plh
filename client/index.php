@@ -16,6 +16,8 @@ $day = new DateTime('last day of this month');
   var __PC_CUSTOMER_ADDRESS__ = <?php echo json_encode(__PC_CUSTOMER_ADDRESS__); ?>;
   var __PC_CUSTOMER_CONTACT__ = <?php echo json_encode(__PC_CUSTOMER_CONTACT__); ?>;
   var __SEGMEN_INDIVIDUAL__ = <?php echo json_encode(__SEGMEN_INDIVIDUAL__);  ?>;
+  var __TAX_VAL__ = <?php echo json_encode(__TAX_VAL__);  ?>;
+  var __SER_VAL__ = <?php echo json_encode(__SER_VAL__);  ?>;
   var __RULE_TRANS_DEPO__ = <?php echo json_encode(__RULE_TRANS_DEPO__);  ?>;
   var __RULE_TRANS_RATE_CHARGE__ = <?php echo json_encode(__RULE_TRANS_RATE_CHARGE__);  ?>;
   var __PC_IDENT__ = <?php echo json_encode(__PC_IDENT__); ?>;
@@ -71,6 +73,8 @@ if (
   isset($_SESSION['token']) ||
   __PAGES__[0] == 'anjungan' ||
   __PAGES__[0] == 'display' ||
+  __PAGES__[0] == 'outlet' ||
+  __PAGES__[0] == 'pos' ||
   __PAGES__[0] == 'display_dokter'
 ) {
   $params = parse_ini_file('../api/app/database.ini');

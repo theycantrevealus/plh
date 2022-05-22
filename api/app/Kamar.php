@@ -54,6 +54,15 @@ class Kamar extends Utility
       case 'ubah_status':
         return self::ubah_status($parameter);
         break;
+      case 'lostandfound':
+        return self::lostandfound($parameter);
+        break;
+      case 'tambah_lost':
+        return self::tambah_lost($parameter);
+        break;
+      case 'edit_lost':
+        return self::edit_lost($parameter);
+        break;
     }
   }
 
@@ -62,6 +71,9 @@ class Kamar extends Utility
     switch ($parameter[6]) {
       case 'tipe':
         return self::hapus_tipe($parameter[7]);
+        break;
+      case 'lost':
+        return self::hapus_lost($parameter[7]);
         break;
       default:
         return $parameter;
@@ -78,12 +90,56 @@ class Kamar extends Utility
         case 'detail':
           return self::detail($parameter[2]);
           break;
+        case 'lost_detail':
+          return self::lost_detail($parameter[2]);
+          break;
         default:
           return array();
       }
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  private function hapus_lost($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+
+    $data = self::$query->delete('kamar_lost_and_found')
+      ->where(array(
+        'kamar_lost_and_found.id' => '= ?'
+      ), array(
+        $parameter
+      ))
+      ->execute();
+    if ($data['response_result'] > 0) {
+      $log = parent::log(
+        array(
+          'type' => 'activity',
+          'column' => array(
+            'unique_target',
+            'user_uid',
+            'table_name',
+            'action',
+            'logged_at',
+            'status',
+            'login_id'
+          ),
+          'value' => array(
+            $parameter,
+            $UserData['data']->uid,
+            'kamar_lost_and_found',
+            'D',
+            parent::format_date(),
+            'N',
+            $UserData['data']->log_id
+          ),
+          'class' => __CLASS__
+        )
+      );
+    }
+    return $data;
   }
 
   private function hapus_tipe($parameter)
@@ -168,9 +224,25 @@ class Kamar extends Utility
     return $data;
   }
 
+  private function lost_detail($parameter)
+  {
+    $data = self::$query->select('kamar_lost_and_found', array(
+      'id', 'ditemukan', 'guest', 'deskripsi', 'lokasi', 'created_at', 'delivered_date', 'delivered_by'
+    ))
+      ->where(array(
+        'kamar_lost_and_found.id' => '= ?'
+      ), array(
+        $parameter
+      ))
+      ->execute();
+    return $data;
+  }
+
   private function detail_tipe($parameter)
   {
-    $data = self::$query->select('master_kamar_tipe')
+    $data = self::$query->select('master_kamar_tipe', array(
+      'uid', 'kode', 'nama'
+    ))
       ->where(array(
         'master_kamar_tipe.uid' => '= ?'
       ), array($parameter))
@@ -343,6 +415,134 @@ class Kamar extends Utility
         'class' => __CLASS__
       ));
     }
+    return $data;
+  }
+
+  private function edit_lost($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    $data = self::$query->update('kamar_lost_and_found', array(
+      'ditemukan' => $UserData['data']->uid,
+      'delivered_by' => $parameter['deliv_by'],
+      'delivered_date' => date('Y-m-d', strtotime($parameter['deliv_date'])),
+      'guest' => $parameter['guest'],
+      'lokasi' => $parameter['lokasi'],
+      'deskripsi' => $parameter['deskripsi'],
+      'updated_at' => parent::format_date()
+    ))
+      ->where(array(
+        'kamar_lost_and_found.id' => '= ?'
+      ), array(
+        $parameter['id']
+      ))
+      ->execute();
+    return $data;
+  }
+
+  private function tambah_lost($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    $data = self::$query->insert('kamar_lost_and_found', array(
+      'kamar' => $parameter['kamar'],
+      'ditemukan' => $UserData['data']->uid,
+      'guest' => $parameter['guest'],
+      'lokasi' => $parameter['lokasi'],
+      'delivered_by' => $parameter['deliv_by'],
+      'delivered_date' => date('Y-m-d', strtotime($parameter['deliv_date'])),
+      'deskripsi' => $parameter['deskripsi'],
+      'created_at' => parent::format_date(),
+      'updated_at' => parent::format_date()
+    ))
+      ->execute();
+    return $data;
+  }
+
+  private function lostandfound($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    if (isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+      $paramData = array(
+        '(kamar_lost_and_found.guest' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+        'OR',
+        'kamar_lost_and_found.deskripsi' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+        'AND',
+        'kamar_lost_and_found.deleted_at' => 'IS NULL',
+        'AND',
+        'kamar_lost_and_found.kamar' => '= ?'
+      );
+      $paramValue = array($parameter['kamar']);
+    } else {
+      $paramData = array(
+        'kamar_lost_and_found.deleted_at' => 'IS NULL',
+        'AND',
+        'kamar_lost_and_found.kamar' => '= ?'
+      );
+      $paramValue = array($parameter['kamar']);
+    }
+
+    if ($parameter['length'] < 0) {
+      $data = self::$query->select('kamar_lost_and_found', array(
+        'id', 'ditemukan', 'guest', 'deskripsi', 'lokasi', 'created_at', 'delivered_date', 'delivered_by'
+      ))
+        ->join('pegawai', array(
+          'nama'
+        ))
+        ->on(array(
+          array('kamar_lost_and_found.ditemukan', '=', 'pegawai.uid')
+        ))
+        ->order(array(
+          'created_at' => 'ASC'
+        ))
+        ->where($paramData, $paramValue)
+        ->execute();
+    } else {
+      $data = self::$query->select('kamar_lost_and_found', array(
+        'id', 'ditemukan', 'guest', 'deskripsi', 'lokasi', 'created_at', 'delivered_date', 'delivered_by'
+      ))
+        ->join('pegawai', array(
+          'nama'
+        ))
+        ->on(array(
+          array('kamar_lost_and_found.ditemukan', '=', 'pegawai.uid')
+        ))
+        ->order(array(
+          'created_at' => 'ASC'
+        ))
+        ->where($paramData, $paramValue)
+        ->offset(intval($parameter['start']))
+        ->limit(intval($parameter['length']))
+        ->execute();
+    }
+
+    $data['response_draw'] = $parameter['draw'];
+    $autonum = intval($parameter['start']) + 1;
+    foreach ($data['response_data'] as $key => $value) {
+      $data['response_data'][$key]['autonum'] = $autonum;
+      $data['response_data'][$key]['delivered_date'] = (isset($value['delivered_date']) && !empty($value['delivered_date'])) ? date('d F Y', strtotime($value['delivered_date'])) : '-';
+      $data['response_data'][$key]['delivered_by'] = (isset($value['delivered_date']) && !empty($value['delivered_date'])) ? $value['delivered_by'] : '-';
+      $data['response_data'][$key]['created_at'] = date('d F Y', strtotime($value['created_at']));
+      $autonum++;
+    }
+
+    $itemTotal = self::$query->select('kamar_lost_and_found', array(
+      'id'
+    ))
+      ->join('pegawai', array(
+        'nama'
+      ))
+      ->on(array(
+        array('kamar_lost_and_found.tipe', '=', 'ditemukan.uid')
+      ))
+      ->where($paramData, $paramValue)
+      ->execute();
+
+    $data['recordsTotal'] = count($itemTotal['response_data']);
+    $data['recordsFiltered'] = count($itemTotal['response_data']);
+    $data['length'] = intval($parameter['length']);
+    $data['start'] = intval($parameter['start']);
     return $data;
   }
 

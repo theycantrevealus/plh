@@ -2,7 +2,7 @@
   $(function() {
     var MODE = "tambah",
       selectedUID;
-    var tabletipe = $("#table-tipe").DataTable({
+    var tabletipe = $("#table-tax").DataTable({
       processing: true,
       serverSide: true,
       sPaginationType: "full_numbers",
@@ -13,13 +13,13 @@
       ],
       serverMethod: "POST",
       "ajax": {
-        url: __HOSTAPI__ + "/Company",
+        url: __HOSTAPI__ + "/Accounting",
         type: "POST",
         headers: {
           Authorization: "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>
         },
         data: function(d) {
-          d.request = "list_company";
+          d.request = "tax_list";
         },
         dataSrc: function(response) {
           var returnData = [];
@@ -75,13 +75,7 @@
         {
           "data": null,
           render: function(data, type, row, meta) {
-            return "<span id=\"email_" + row.uid + "\">" + row.email + "</span>";
-          }
-        },
-        {
-          "data": null,
-          render: function(data, type, row, meta) {
-            return "<span id=\"phone_" + row.uid + "\">" + row.phone + "</span>";
+            return "<span id=\"nilai_" + row.uid + "\">" + row.nilai + "%</span>";
           }
         },
         {
@@ -105,14 +99,14 @@
       uid = uid[uid.length - 1];
 
       Swal.fire({
-        title: "Hapus tipe?",
+        title: "Hapus tax?",
         showDenyButton: true,
         confirmButtonText: `Ya`,
         denyButtonText: `Tidak`,
       }).then((result) => {
         if (result.isConfirmed) {
           $.ajax({
-            url: __HOSTAPI__ + "/Company/company/" + uid,
+            url: __HOSTAPI__ + "/Accounting/tipe/" + uid,
             beforeSend: function(request) {
               request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
             },
@@ -130,31 +124,41 @@
       });
     });
 
+    $("#txt_nilai").inputmask({
+      alias: 'decimal',
+      rightAlign: true,
+      placeholder: "0.00",
+      prefix: "",
+      rightAlign: false,
+      groupSeparator: ".",
+      autoGroup: false,
+      digitsOptional: true
+    });
+
     $("#btnSubmit").click(function() {
       var kode = $("#txt_kode").val();
       var nama = $("#txt_nama").val();
-      var email = $("#txt_email").val();
-      var phone = $("#txt_phone").val();
+      var nilai = $("#txt_nilai").inputmask("unmaskedvalue");
       if (kode !== "" && nama !== "") {
         $.ajax({
-          url: __HOSTAPI__ + "/Company",
+          url: __HOSTAPI__ + "/Accounting",
           beforeSend: function(request) {
             request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
           },
           type: "POST",
           data: {
-            request: (MODE === 'tambah') ? 'tambah_company' : 'edit_company',
+            request: (MODE === 'tambah') ? 'tambah_tax' : 'edit_tax',
             uid: selectedUID,
             kode: kode,
             nama: nama,
-            email: email,
-            phone: phone
+            nilai: nilai
           },
           success: function(response) {
             if (response.response_package.response_result > 0) {
               $("#form-tambah").modal("hide");
               $("#txt_kode").val("");
               $("#txt_nama").val("");
+              $("#txt_nilai").inputmask("setvalue", 0);
               tabletipe.ajax.reload();
             }
           },
@@ -168,11 +172,6 @@
     $("#btnTambahtipe").click(function() {
       $("#form-tambah").modal("show");
       MODE = 'tambah';
-
-      $("#txt_kode").val("");
-      $("#txt_nama").val("");
-      $("#txt_phone").val("");
-      $("#txt_email").val("");
     });
 
     $("body").on("click", ".btn-edit-tipe", function() {
@@ -186,8 +185,7 @@
 
       $("#txt_kode").val($("#kode_" + uid).html());
       $("#txt_nama").val($("#nama_" + uid).html());
-      $("#txt_phone").val($("#phone_" + uid).html());
-      $("#txt_email").val($("#email_" + uid).html());
+      $("#txt_nilai").inputmask("setvalue", $("#nilai_" + uid).html());
     });
   });
 </script>
@@ -196,7 +194,7 @@
   <div class="modal-dialog modal-md" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="modal-large-title">Tambah Tipe</h5>
+        <h5 class="modal-title" id="modal-large-title">Tambah Tax</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -211,12 +209,8 @@
           <input type="text" class="form-control" id="txt_nama" />
         </div>
         <div class="form-group col-md-12">
-          <label for="txt_email">Email:</label>
-          <input type="text" class="form-control" id="txt_email" />
-        </div>
-        <div class="form-group col-md-12">
-          <label for="txt_phone">Phone:</label>
-          <input type="text" class="form-control" id="txt_phone" />
+          <label for="txt_nama">Nilai(%):</label>
+          <input type="text" class="form-control" id="txt_nilai" />
         </div>
       </div>
       <div class="modal-footer">

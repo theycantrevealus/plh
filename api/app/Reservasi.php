@@ -54,12 +54,98 @@ class Reservasi extends Utility
         case 'detail':
           return self::reservasi_detail($parameter[2]);
           break;
+        case 'search_reserv':
+          return self::search_reserv($parameter);
+          break;
         default:
           return 'Unknown request';
       }
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  private function search_reserv($parameter)
+  {
+    $data = self::$query->select('reservasi', array(
+      'uid',
+      'no_reservasi',
+      'id_number',
+      'check_in',
+      'check_out',
+      'status',
+      'tipe_kamar',
+      'block',
+      'kamar',
+      'deposit',
+      'customer',
+      'pax',
+      'vip',
+      'company',
+      'rate_code',
+      'rate_value',
+      'metode_payment',
+      'card_number',
+      'card_valid_until',
+      'segmentasi',
+      'nationality',
+      'state',
+      'reservation_contact',
+      'reserved_by',
+      'checked_in_by',
+      'checked_out_by',
+      'cashier_remark',
+      'check_in_remark',
+      'created_at',
+      'updated_at'
+    ))
+      ->join('master_kamar', array(
+        'nomor'
+      ))
+      ->join('master_kamar_tipe', array(
+        'kode as kode_tipe',
+        'nama as nama_tipe'
+      ))
+      ->join('segmentasi', array(
+        'msscode', 'deskripsi as nama_segmentasi'
+      ))
+      ->join('customer', array(
+        'id_number', 'nama_depan', 'nama_belakang', 'panggilan', 'tanggal_lahir', 'alamat', 'phone', 'email'
+      ))
+      ->join('terminologi_item', array(
+        'nama as nama_panggilan'
+      ))
+      ->join('master_kamar_rate', array(
+        'kode as kode_rate'
+      ))
+      ->join('master_wilayah_negara', array(
+        'alpha_3_code', 'nationality as nama_nationality'
+      ))
+      ->join('master_wilayah_kabupaten', array(
+        'nama as nama_kabupaten'
+      ))
+      ->on(array(
+        array('reservasi.kamar', '=', 'master_kamar.uid'),
+        array('reservasi.tipe_kamar', '=', 'master_kamar_tipe.uid'),
+        array('reservasi.segmentasi', '=', 'segmentasi.uid'),
+        array('reservasi.customer', '=', 'customer.uid'),
+        array('customer.panggilan', '=', 'terminologi_item.id'),
+        array('reservasi.rate_code', '=', 'master_kamar_rate.uid'),
+        array('reservasi.nationality', '=', 'master_wilayah_negara.id'),
+        array('reservasi.state', '=', 'master_wilayah_kabupaten.id')
+      ))
+      ->where(array(
+        'master_kamar.nomor' => 'ILIKE ' . '\'%' . strtoupper($_GET['search']) . '%\'',
+        'AND',
+        'reservasi.check_out' => '>= ?',
+        'AND',
+        'reservasi.checked_out_by' => 'IS NULL'
+      ), array(
+        date('Y-m-d')
+      ))
+      ->execute();
+
+    return $data;
   }
 
   private function change_status($parameter)

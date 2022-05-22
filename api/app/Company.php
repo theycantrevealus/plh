@@ -126,6 +126,8 @@ class Company extends Utility
     $data = self::$query->update('company', array(
       'kode' => $parameter['kode'],
       'nama' => $parameter['nama'],
+      'email' => $parameter['email'],
+      'phone' => $parameter['phone'],
       'updated_at' => parent::format_date()
     ))
       ->where(array(
@@ -173,6 +175,8 @@ class Company extends Utility
       'uid' => $uid,
       'kode' => $parameter['kode'],
       'nama' => $parameter['nama'],
+      'email' => $parameter['email'],
+      'phone' => $parameter['phone'],
       'created_at' => parent::format_date(),
       'updated_at' => parent::format_date()
     ))
@@ -227,13 +231,13 @@ class Company extends Utility
 
     if ($parameter['length'] < 0) {
       $data = self::$query->select('company', array(
-        'uid', 'kode', 'nama'
+        'uid', 'kode', 'nama', 'email', 'phone'
       ))
         ->where($paramData, $paramValue)
         ->execute();
     } else {
       $data = self::$query->select('company', array(
-        'uid', 'kode', 'nama'
+        'uid', 'kode', 'nama', 'email', 'phone'
       ))
         ->where($paramData, $paramValue)
         ->offset(intval($parameter['start']))
@@ -264,7 +268,7 @@ class Company extends Utility
   private function company_list()
   {
     $data = self::$query->select('company', array(
-      'uid', 'kode', 'nama'
+      'uid', 'kode', 'nama', 'email', 'phone'
     ))
       ->where(array(
         'company.deleted_at' => 'IS NULL',

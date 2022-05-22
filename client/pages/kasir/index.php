@@ -61,10 +61,13 @@
           <table class="table table-bordered" id="table-history">
             <thead class="thead-dark">
               <tr>
-                <th class="wrap_content">No</th>
+                <th class="wrap_content">No Reservasi</th>
+                <th class="wrap_content">No Folio</th>
                 <th>Guest</th>
+                <th class="wrap_content">No. Kamar</th>
                 <th class="wrap_content">Check In</th>
                 <th class="wrap_content">Check Out</th>
+                <th class="wrap_content">Balance</th>
                 <th class="wrap_content">Aksi</th>
               </tr>
             </thead>

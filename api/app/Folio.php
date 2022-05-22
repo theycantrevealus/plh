@@ -36,6 +36,12 @@ class Folio extends Utility
       case 'list_folio':
         return self::list_folio($parameter);
         break;
+      case 'list_folio_history':
+        return self::list_folio_history($parameter);
+        break;
+      case 'check_out':
+        return self::check_out($parameter);
+        break;
     }
   }
 
@@ -61,7 +67,7 @@ class Folio extends Utility
   private function folio_trans($parameter)
   {
     $data = self::$query->select('folio_transact', array(
-      'transcode', 'price', 'remark', 'add_by', 'created_at', 'deskripsi'
+      'transcode', 'price', 'remark', 'add_by', 'created_at', 'deskripsi', 'final_price'
     ))
       ->where(array(
         'folio_transact.folio' => '= ?',
@@ -93,7 +99,7 @@ class Folio extends Utility
     return $data;
   }
 
-  private function folio_detail($parameter)
+  public function folio_detail($parameter)
   {
     $data = self::$query->select('folio', array(
       'uid', 'reservasi', 'no_folio', 'kamar', 'balance'
@@ -152,6 +158,137 @@ class Folio extends Utility
     return $data;
   }
 
+  private function check_out($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    $Fol = self::folio_detail($parameter['folio']);
+    $Reserv = self::$query->update('reservasi', array(
+      'check_out_actual' => parent::format_date(),
+      'checked_out_by' => $UserData['data']->uid,
+      'status_rev' => NULL
+    ))
+      ->where(array(
+        'reservasi.uid' => '= ?'
+      ), array(
+        $Fol['response_data'][0]['reservasi']
+      ))
+      ->execute();
+
+    if ($Reserv['response_result'] > 0) {
+      $Kamar = self::$query->update('master_kamar', array(
+        'status' => 'VD'
+      ))
+        ->where(array(
+          'master_kamar.uid' => '= ?'
+        ), array(
+          $Fol['response_data'][0]['kamar']
+        ))
+        ->execute();
+    }
+    return $Reserv;
+  }
+
+  private function list_folio_history($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+    if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+      $paramData = array(
+        '(folio.no_folio' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+        'OR',
+        'customer.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
+        'AND',
+        'folio.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.check_out_actual' => 'IS NOT NULL'
+      );
+      $paramValue = array();
+    } else {
+      $paramData = array(
+        'folio.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.check_out_actual' => 'IS NOT NULL'
+      );
+      $paramValue = array();
+    }
+
+    if ($parameter['length'] < 0) {
+      $data = self::$query->select('folio', array(
+        'uid', 'reservasi', 'no_folio', 'kamar', 'balance'
+      ))
+        ->join('reservasi', array(
+          'no_reservasi', 'customer', 'check_in', 'check_out'
+        ))
+        ->join('customer', array(
+          'nama_depan', 'nama_belakang'
+        ))
+        ->join('master_kamar', array(
+          'nomor as nomor_kamar'
+        ))
+        ->on(array(
+          array('folio.reservasi', '=', 'reservasi.uid'),
+          array('reservasi.customer', '=', 'customer.uid'),
+          array('folio.kamar', '=', 'master_kamar.uid')
+        ))
+        ->where($paramData, $paramValue)
+        ->execute();
+    } else {
+      $data = self::$query->select('folio', array(
+        'uid', 'reservasi', 'no_folio', 'kamar', 'balance'
+      ))
+        ->join('reservasi', array(
+          'no_reservasi', 'customer', 'check_in', 'check_out'
+        ))
+        ->join('customer', array(
+          'nama_depan', 'nama_belakang'
+        ))
+        ->join('master_kamar', array(
+          'nomor as nomor_kamar'
+        ))
+        ->on(array(
+          array('folio.reservasi', '=', 'reservasi.uid'),
+          array('reservasi.customer', '=', 'customer.uid'),
+          array('folio.kamar', '=', 'master_kamar.uid')
+        ))
+        ->where($paramData, $paramValue)
+        ->offset(intval($parameter['start']))
+        ->limit(intval($parameter['length']))
+        ->execute();
+    }
+
+    $data['response_draw'] = $parameter['draw'];
+    $autonum = intval($parameter['start']) + 1;
+    foreach ($data['response_data'] as $key => $value) {
+      $data['response_data'][$key]['autonum'] = $autonum;
+      $data['response_data'][$key]['check_in'] = date('d F Y H:i', strtotime($value['check_in']));
+      $data['response_data'][$key]['check_out'] = date('d F Y H:i', strtotime($value['check_out']));
+      $autonum++;
+    }
+
+    $itemTotal = self::$query->select('folio', array(
+      'uid', 'reservasi', 'no_folio', 'kamar', 'balance'
+    ))
+      ->join('reservasi', array(
+        'customer'
+      ))
+      ->join('customer', array(
+        'nama_depan', 'nama_belakang'
+      ))
+      ->on(array(
+        array('folio.reservasi', '=', 'reservasi.uid'),
+        array('reservasi.customer', '=', 'customer.uid')
+      ))
+      ->where($paramData, $paramValue)
+      ->execute();
+
+    $data['recordsTotal'] = count($itemTotal['response_data']);
+    $data['recordsFiltered'] = count($itemTotal['response_data']);
+    $data['length'] = intval($parameter['length']);
+    $data['start'] = intval($parameter['start']);
+    return $data;
+  }
+
   private function list_folio($parameter)
   {
     $Authorization = new Authorization();
@@ -162,12 +299,16 @@ class Folio extends Utility
         'OR',
         'customer.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
         'AND',
-        'folio.deleted_at' => 'IS NULL'
+        'folio.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.check_out_actual' => 'IS NULL'
       );
       $paramValue = array();
     } else {
       $paramData = array(
-        'reservasi.deleted_at' => 'IS NULL'
+        'folio.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.check_out_actual' => 'IS NULL'
       );
       $paramValue = array();
     }
@@ -257,6 +398,9 @@ class Folio extends Utility
       'transcode' => $parameter['transcode'],
       'qty' => 1,
       'price' => $parameter['transval'],
+      'tax_value' => __TAX_VAL__,
+      'service_value' => __SER_VAL__,
+      'final_price' => $parameter['transval_final'],
       'deskripsi' => $parameter['deskripsi'],
       'remark' => $parameter['remark'],
       'add_by' => $UserData['data']->uid,
@@ -277,7 +421,8 @@ class Folio extends Utility
         ->execute()['response_data'][0];
 
       $oldFol = self::folio_detail($parameter['folio']);
-      $fixBalance = ($checkTrans['dbcr'] === 'D') ? (floatval($oldFol['response_data'][0]['balance']) + floatval($parameter['transval'])) : (floatval($oldFol['response_data'][0]['balance']) - floatval($parameter['transval']));
+
+      $fixBalance = ($checkTrans['dbcr'] === 'D') ? (floatval($oldFol['response_data'][0]['balance']) + floatval($parameter['transval'])) : (floatval($oldFol['response_data'][0]['balance']) - (floatval($parameter['transval'])));
       $FolioUp = self::$query->update('folio', array(
         'balance' => $fixBalance
       ))
@@ -312,7 +457,7 @@ class Folio extends Utility
       'no_folio' => str_pad((count($nomor['response_data']) + 1), 5, '0', STR_PAD_LEFT),
       'kamar' => $parameter['kamar'],
       // 'balance' => floatval($parameter['deposit']) - floatval($parameter['rate_value']),
-      'balance' => floatval($parameter['deposit']),
+      'balance' => floatval($parameter['deposit']) * -1,
       'created_at' => parent::format_date(),
       'updated_at' => parent::format_date()
     ))

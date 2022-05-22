@@ -96,7 +96,7 @@ class RPost extends Utility
           ->execute();
 
         $upFol = self::$query->update('folio', array(
-          'balance' => floatval($old['response_data'][0]['balance']) - floatval($parameter['rate_value'])
+          'balance' => floatval($old['response_data'][0]['balance']) + floatval($parameter['rate_value'])
         ))
           ->where(array(
             'uid' => '= ?'

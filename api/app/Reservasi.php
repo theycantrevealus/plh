@@ -42,6 +42,9 @@ class Reservasi extends Utility
       case 'change_status':
         return self::change_status($parameter);
         break;
+      case 'dashboard_grafik_kamar':
+        return self::dashboard_grafik_kamar($parameter);
+        break;
     }
   }
 
@@ -57,12 +60,115 @@ class Reservasi extends Utility
         case 'search_reserv':
           return self::search_reserv($parameter);
           break;
+        case 'count_reservasi':
+          return self::count_reservasi();
+          break;
+        case 'count_checkout':
+          return self::count_checkout();
+          break;
+        case 'count_occupied':
+          return self::count_occupied();
+          break;
+        case 'count_occ':
+          return self::count_occ();
+          break;
+        case 'count_available':
+          return self::count_available();
+          break;
+        case 'count_vacant':
+          return self::count_vacant();
+          break;
+        case 'count_vacant_dirty':
+          return self::count_vacant_dirty();
+          break;
+        case 'count_oo':
+          return self::count_oo();
+          break;
+        case 'count_arr':
+          return self::count_arr();
+          break;
         default:
           return 'Unknown request';
       }
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  private function dashboard_grafik_kamar($parameter)
+  {
+    $begin = new \DateTime($parameter['from']);
+    $end = new \DateTime($parameter['to']);
+
+    $interval = \DateInterval::createFromDateString('1 day');
+    $period = new \DatePeriod($begin, $interval, $end);
+
+    $dataSet = array(
+      array(
+        'backgroundColor' => array('rgba(63, 198, 0, 1)'),
+        'borderColor' => array('rgba(120, 255, 58, 1)'),
+        'label' => 'Rate Revenue',
+        'fill' => false,
+        'cubicInterpolationMode' => 'monotone',
+        'tension' => 0.4,
+        'data' => array()
+      ),
+      array(
+        'backgroundColor' => array('rgba(239, 243, 0, 1)'),
+        'borderColor' => array('rgba(255, 206, 86, 1)'),
+        'label' => 'Penggunaan Kamar',
+        'fill' => false,
+        'cubicInterpolationMode' => 'monotone',
+        'tension' => 0.4,
+        'data' => array()
+      )
+    );
+
+    $labels = array();
+    foreach ($period as $dt) {
+      array_push($labels, $dt->format('d-m-Y'));
+
+      $count_kamar = self::$query->select('reservasi', array(
+        'uid'
+      ))
+        ->where(array(
+          'reservasi.kamar' => 'IS NOT NULL',
+          'AND',
+          'reservasi.check_out_actual' => 'IS NOT NULL',
+          'AND',
+          'reservasi.deleted_at' => 'IS NULL',
+          'AND',
+          'reservasi.created_at::date' => '= date \'' . $dt->format('Y-m-d') . '\''
+        ), array())
+        ->execute();
+      array_push($dataSet[1]['data'], count($count_kamar['response_data']));
+
+
+      $data = self::$query->select('folio_transact', array(
+        'price'
+      ))
+        ->where(array(
+          'folio_transact.transcode' => '= ?',
+          'AND',
+          'folio_transact.deleted_at' => 'IS NULL',
+          'AND',
+          'folio_transact.created_at::date' => '= date \'' . $dt->format('Y-m-d') . '\''
+        ), array(
+          __RULE_TRANS_RATE_CHARGE__
+        ))
+        ->execute();
+      $total = 0;
+      foreach ($data['response_data'] as $key => $value) {
+        $total += floatval($value['price']);
+      }
+
+      array_push($dataSet[0]['data'], $total);
+    }
+
+    return array(
+      'labels' => $labels,
+      'datasets' => $dataSet
+    );
   }
 
   private function search_reserv($parameter)
@@ -145,6 +251,143 @@ class Reservasi extends Utility
       ))
       ->execute();
 
+    return $data;
+  }
+
+  private function count_reservasi()
+  {
+    $data = self::$query->select('reservasi', array(
+      'uid'
+    ))
+      ->where(array(
+        'reservasi.check_out_actual' => 'IS NULL',
+        'AND',
+        'reservasi.kamar' => 'IS NULL',
+        'AND',
+        'reservasi.deleted_at' => 'IS NULL'
+      ), array())
+      ->execute();
+    return $data;
+  }
+
+  private function count_occ()
+  {
+    $ro = self::count_occupied();
+    $ra = self::count_available();
+    return number_format((float) (count($ro['response_data']) / count($ra['response_data']) * 100), 2, ".", "");
+  }
+
+  private function count_occupied()
+  {
+    $data = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        '(master_kamar.status' => '= ?',
+        'OR',
+        'master_kamar.status' => '= ?)',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('OC', 'OD'))
+      ->execute();
+    return $data;
+  }
+
+  private function count_available()
+  {
+    $data = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        'master_kamar.status' => '= ?',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('VC'))
+      ->execute();
+    return $data;
+  }
+
+  private function count_vacant()
+  {
+    $data = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        '(master_kamar.status' => '= ?',
+        'OR',
+        'master_kamar.status' => '= ?)',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('VC', 'VD'))
+      ->execute();
+    return $data;
+  }
+
+  private function count_arr()
+  {
+    $data = self::$query->select('folio_transact', array(
+      'price'
+    ))
+      ->where(array(
+        'folio_transact.transcode' => '= ?',
+        'AND',
+        'folio_transact.deleted_at' => 'IS NULL',
+        'AND',
+        '(folio_transact.created_at' => '>= current_date::timestamp',
+        'AND',
+        'folio_transact.created_at' => '< current_date::timestamp + interval \'1 day\')'
+      ), array(
+        __RULE_TRANS_RATE_CHARGE__
+      ))
+      ->execute();
+    $total = 0;
+    foreach ($data['response_data'] as $key => $value) {
+      $total += floatval($value['price']);
+    }
+    $getAvail = self::count_available();
+    $final = $total / count($getAvail);
+    return $final;
+  }
+
+  private function count_oo()
+  {
+    $data = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        'master_kamar.status' => '= ?',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('OO'))
+      ->execute();
+    return $data;
+  }
+
+  private function count_vacant_dirty()
+  {
+    $data = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        'master_kamar.status' => '= ?',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('VD'))
+      ->execute();
+    return $data;
+  }
+
+  private function count_checkout()
+  {
+    $data = self::$query->select('reservasi', array(
+      'uid'
+    ))
+      ->where(array(
+        'reservasi.check_out_actual' => 'IS NOT NULL',
+        'AND',
+        'reservasi.deleted_at' => 'IS NULL'
+      ), array())
+      ->execute();
     return $data;
   }
 

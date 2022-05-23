@@ -39,7 +39,7 @@ $lastExist = '';
         <div class="mdk-drawer-layout__content page" id="app-settings">
           <?php
           if (empty(__PAGES__[0])) {
-            require 'pages/system/dashboard.php';
+            require 'pages/dashboard/index.php';
           } else {
             if (implode('/', __PAGES__) == 'system/logout') {
               require 'pages/system/logout.php';
@@ -142,7 +142,8 @@ $lastExist = '';
       </div>
       <div class="content-shimmer">
         <center>
-          <img width="240" height="220" src="<?php echo __HOSTNAME__; ?>/template/assets/images/preloader.gif" />
+          <img class="navbar-brand-icon" src="<?php echo __HOSTNAME__; ?>/template/assets/images/clients/logo-text-black-<?php echo __PC_IDENT__; ?>.png" width="540" height="520" alt="<?php echo __PC_CUSTOMER__; ?>">
+          <!-- <img width="240" height="220" src="<?php echo __HOSTNAME__; ?>/template/assets/images/preloader.gif" /> -->
           <br />
           Loading...
         </center>
@@ -268,6 +269,20 @@ $lastExist = '';
     }
 
     $(function() {
+      setInterval(function() {
+        $.ajax({
+          async: false,
+          url: __HOSTAPI__ + "/Contoh/curdate",
+          type: "GET",
+          beforeSend: function(request) {
+            request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+          },
+          success: function(response) {
+            var setDate = response.response_package;
+            $("#curTime").html(setDate);
+          }
+        });
+      }, 1000);
       var targetModule = 0;
       var tutorList = {};
       var currentPageURL = document.URL;
@@ -813,7 +828,7 @@ $lastExist = '';
   </script>
   <?php
   if (empty(__PAGES__[0])) {
-    require 'script/system/dashboard.php';
+    require 'script/dashboard/index.php';
   } else {
     if (is_dir('script/' . implode('/', __PAGES__))) {
       include 'script/' . implode('/', __PAGES__) . '/index.php';

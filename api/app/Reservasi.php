@@ -81,6 +81,9 @@ class Reservasi extends Utility
         case 'count_vacant_dirty':
           return self::count_vacant_dirty();
           break;
+        case 'count_compliment':
+          return self::count_compliment();
+          break;
         case 'count_oo':
           return self::count_oo();
           break;
@@ -133,8 +136,6 @@ class Reservasi extends Utility
       ))
         ->where(array(
           'reservasi.kamar' => 'IS NOT NULL',
-          'AND',
-          'reservasi.check_out_actual' => 'IS NOT NULL',
           'AND',
           'reservasi.deleted_at' => 'IS NULL',
           'AND',
@@ -272,9 +273,50 @@ class Reservasi extends Utility
 
   private function count_occ()
   {
+    // RO / RA * 100
+
+    // Avail : non OO dan non HU
+    // Occ : non HU
+
     $ro = self::count_occupied();
-    $ra = self::count_available();
-    return number_format((float) (count($ro['response_data']) / count($ra['response_data']) * 100), 2, ".", "");
+
+    $roHU = self::$query->select('folio', array(
+      'uid', 'reservasi'
+    ))
+      ->join('reservasi', array(
+        'rate_code'
+      ))
+      ->join('master_kamar_rate', array(
+        'harga'
+      ))
+      ->on(array(
+        array('folio.reservasi', '=', 'reservasi.uid'),
+        array('reservasi.rate_code', '=', 'master_kamar_rate.uid')
+      ))
+      ->where(array(
+        'reservasi.check_out::date' => '>= date \'' . date('Y-m-d') . '\'',
+        'AND',
+        'folio.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.rate_code' => ' != ?'
+      ), array(
+        __RATE_HU__
+      ))
+      ->execute();
+
+    $roFinal = count($ro['response_data']) - count($roHU['response_data']);
+
+    $ra = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        'master_kamar.status' => '!= ?'
+      ), array(
+        'OO'
+      ))
+      ->execute();
+    $raFinal = count($ra['response_data']) - count($roHU['response_data']);
+    return number_format((float) ($roFinal / $raFinal * 100), 2, ".", "");
   }
 
   private function count_occupied()
@@ -299,20 +341,6 @@ class Reservasi extends Utility
       'uid'
     ))
       ->where(array(
-        'master_kamar.status' => '= ?',
-        'AND',
-        'master_kamar.deleted_at' => 'IS NULL'
-      ), array('VC'))
-      ->execute();
-    return $data;
-  }
-
-  private function count_vacant()
-  {
-    $data = self::$query->select('master_kamar', array(
-      'uid'
-    ))
-      ->where(array(
         '(master_kamar.status' => '= ?',
         'OR',
         'master_kamar.status' => '= ?)',
@@ -323,30 +351,107 @@ class Reservasi extends Utility
     return $data;
   }
 
-  private function count_arr()
+  private function count_vacant()
   {
-    $data = self::$query->select('folio_transact', array(
-      'price'
+    $data = self::$query->select('master_kamar', array(
+      'uid'
     ))
       ->where(array(
-        'folio_transact.transcode' => '= ?',
+        'master_kamar.status' => '= ?',
         'AND',
-        'folio_transact.deleted_at' => 'IS NULL',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('VC'))
+      ->execute();
+    return $data;
+  }
+
+  private function count_arr()
+  {
+
+    $data = self::$query->select('folio', array(
+      'uid', 'reservasi'
+    ))
+      // ->join('folio_transact', array(
+      //   'price', 'folio'
+      // ))
+      ->join('reservasi', array(
+        'rate_code'
+      ))
+      ->join('master_kamar_rate', array(
+        'harga'
+      ))
+      ->on(array(
+        // array('folio_transact.folio', '=', 'folio.uid'),
+        array('folio.reservasi', '=', 'reservasi.uid'),
+        array('reservasi.rate_code', '=', 'master_kamar_rate.uid')
+      ))
+      ->where(array(
+        'reservasi.check_out::date' => '>= date \'' . date('Y-m-d') . '\'',
         'AND',
-        '(folio_transact.created_at' => '>= current_date::timestamp',
+        'folio.deleted_at' => 'IS NULL',
         'AND',
-        'folio_transact.created_at' => '< current_date::timestamp + interval \'1 day\')'
+        'reservasi.rate_code' => ' != ?'
+        // 'AND',
+        // 'folio_transact.transcode' => '= ?'
       ), array(
-        __RULE_TRANS_RATE_CHARGE__
+        //__RULE_TRANS_RATE_CHARGE__
+        __RATE_HU__
       ))
       ->execute();
     $total = 0;
     foreach ($data['response_data'] as $key => $value) {
-      $total += floatval($value['price']);
+      $cPost = self::$query->select('room_posting', array(
+        'rate_value'
+      ))
+        ->where(array(
+          'room_posting.folio' => '= ?',
+          'AND',
+          'room_posting.rate_code' => 'IS NOT NULL'
+        ), array(
+          $value['uid']
+        ))
+        ->execute();
+      if (count($cPost['response_data']) > 0) {
+        $transDet = self::$query->select('folio', array(
+          'uid', 'reservasi'
+        ))
+          ->join('folio_transact', array(
+            'price', 'folio'
+          ))
+          ->join('reservasi', array(
+            'rate_code'
+          ))
+          ->join('master_kamar_rate', array(
+            'harga'
+          ))
+          ->on(array(
+            array('folio_transact.folio', '=', 'folio.uid'),
+            array('folio.reservasi', '=', 'reservasi.uid'),
+            array('reservasi.rate_code', '=', 'master_kamar_rate.uid')
+          ))
+          ->where(array(
+            'folio.created_at::date' => '= date \'' . date('Y-m-d') . '\'',
+            'AND',
+            'folio.deleted_at' => 'IS NULL',
+            'AND',
+            'folio_transact.transcode' => '= ?',
+            'AND',
+            'folio.uid' => '= ?'
+          ), array(
+            __RULE_TRANS_RATE_CHARGE__,
+            $value['uid']
+          ))
+          ->execute();
+        $total += floatval($transDet['response_data'][0]['harga']) / 1.21;
+        //$total += floatval($value['harga']) / 1.21;
+      } else {
+        $total += floatval($value['harga']) / 1.21;
+      }
     }
-    $getAvail = self::count_available();
-    $final = $total / count($getAvail);
-    return $final;
+
+    $final = $total / count($data['response_data']);
+
+    return ($total === 0) ? 0 : $final;
   }
 
   private function count_oo()
@@ -361,6 +466,96 @@ class Reservasi extends Utility
       ), array('OO'))
       ->execute();
     return $data;
+  }
+
+  private function count_compliment()
+  {
+    $data = self::$query->select('folio', array(
+      'uid', 'reservasi'
+    ))
+      // ->join('folio_transact', array(
+      //   'price', 'folio'
+      // ))
+      ->join('reservasi', array(
+        'rate_code'
+      ))
+      ->join('master_kamar_rate', array(
+        'harga'
+      ))
+      ->on(array(
+        // array('folio_transact.folio', '=', 'folio.uid'),
+        array('folio.reservasi', '=', 'reservasi.uid'),
+        array('reservasi.rate_code', '=', 'master_kamar_rate.uid')
+      ))
+      ->where(array(
+        'reservasi.check_out::date' => '>= date \'' . date('Y-m-d') . '\'',
+        'AND',
+        'folio.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.rate_code' => '!= ?'
+        // 'AND',
+        // 'folio_transact.transcode' => '= ?'
+      ), array(
+        //__RULE_TRANS_RATE_CHARGE__
+        __RATE_HU__
+      ))
+      ->execute();
+    $total = 0;
+    $setDat = 0;
+    foreach ($data['response_data'] as $key => $value) {
+      $cPost = self::$query->select('room_posting', array(
+        'rate_value'
+      ))
+        ->where(array(
+          'room_posting.folio' => '= ?',
+          'AND',
+          'room_posting.rate_code' => 'IS NOT NULL'
+        ), array(
+          $value['uid']
+        ))
+        ->execute();
+      if (count($cPost['response_data']) > 0) {
+        $transDet = self::$query->select('folio', array(
+          'uid', 'reservasi'
+        ))
+          ->join('folio_transact', array(
+            'price', 'folio'
+          ))
+          ->join('reservasi', array(
+            'rate_code'
+          ))
+          ->join('master_kamar_rate', array(
+            'harga'
+          ))
+          ->on(array(
+            array('folio_transact.folio', '=', 'folio.uid'),
+            array('folio.reservasi', '=', 'reservasi.uid'),
+            array('reservasi.rate_code', '=', 'master_kamar_rate.uid')
+          ))
+          ->where(array(
+            'folio.created_at::date' => '= date \'' . date('Y-m-d') . '\'',
+            'AND',
+            'folio.deleted_at' => 'IS NULL',
+            'AND',
+            'folio_transact.transcode' => '= ?',
+            'AND',
+            'folio.uid' => '= ?'
+          ), array(
+            __RULE_TRANS_RATE_CHARGE__,
+            $value['uid']
+          ))
+          ->execute();
+        $setDat = floatval($transDet['response_data'][0]['harga']);
+      } else {
+        $setDat = floatval($value['harga']);
+      }
+
+      if ($setDat <= 0) {
+        $total += 1;
+      }
+    }
+
+    return $total;
   }
 
   private function count_vacant_dirty()
@@ -454,6 +649,7 @@ class Reservasi extends Utility
       'vip',
       'company',
       'rate_code',
+      'kamar',
       'rate_value',
       'metode_payment',
       'card_number',
@@ -465,6 +661,7 @@ class Reservasi extends Utility
       'reserved_by',
       'checked_in_by',
       'checked_out_by',
+      'check_in_actual',
       'cashier_remark',
       'check_in_remark',
       'created_at',
@@ -495,6 +692,9 @@ class Reservasi extends Utility
       ->join('master_wilayah_kabupaten', array(
         'nama as nama_kabupaten'
       ))
+      ->join('master_accounting_payment', array(
+        'kode as kode_payment', 'keterangan as ket_payment'
+      ))
       ->on(array(
         array('reservasi.tipe_kamar', '=', 'master_kamar_tipe.uid'),
         array('reservasi.segmentasi', '=', 'segmentasi.uid'),
@@ -503,7 +703,8 @@ class Reservasi extends Utility
         array('customer.panggilan', '=', 'terminologi_item.id'),
         array('reservasi.rate_code', '=', 'master_kamar_rate.uid'),
         array('reservasi.nationality', '=', 'master_wilayah_negara.id'),
-        array('reservasi.state', '=', 'master_wilayah_kabupaten.id')
+        array('reservasi.state', '=', 'master_wilayah_kabupaten.id'),
+        array('reservasi.metode_payment', '=', 'master_accounting_payment.uid')
       ))
       ->where(array(
         'reservasi.uid' => '= ?'
@@ -545,6 +746,20 @@ class Reservasi extends Utility
         $data['response_data'][$key]['kode_company'] = $Company['response_data'][0]['kode'];
         $data['response_data'][$key]['nama_company'] = $Company['response_data'][0]['nama'];
       }
+
+      $data['response_data'][$key]['check_in_date'] = date('d F Y', strtotime($value['check_in']));
+      $data['response_data'][$key]['check_out_date'] = date('d F Y', strtotime($value['check_out']));
+      $data['response_data'][$key]['check_in_actual'] = date('d F Y, H:i', strtotime($value['check_in_actual']));
+      $kamar = self::$query->select('master_kamar', array(
+        'uid', 'nomor'
+      ))
+        ->where(array(
+          'master_kamar.uid' => '= ?'
+        ), array(
+          $value['kamar']
+        ))
+        ->execute();
+      $data['response_data'][$key]['kamar'] = $kamar['response_data'][0];
     }
     return $data;
   }

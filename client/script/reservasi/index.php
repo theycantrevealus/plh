@@ -1,3 +1,4 @@
+<script src="<?php echo __HOSTNAME__; ?>/plugins/printThis/printThis.js"></script>
 <script type="text/javascript">
   $(function() {
 
@@ -226,6 +227,9 @@
               "<button id=\"tipe_edit_" + row.uid + "\" class=\"btn btn-info btn-sm btn-edit-reservasi\">" +
               "<span><i class=\"fa fa-eye\"></i> Edit</span>" +
               "</button>" +
+              "<button id=\"tipe_cetak_rc_" + row.uid + "\" class=\"btn btn-info btn-sm btn-cetak-rc-tipe\">" +
+              "<span><i class=\"fa fa-print\"></i> Reg. Card</span>" +
+              "</button>" +
               "<button id=\"tipe_delete_" + row.uid + "\" class=\"btn btn-danger btn-sm btn-delete-tipe\">" +
               "<span><i class=\"fa fa-trash\"></i> Hapus</span>" +
               "</button>" +
@@ -233,6 +237,138 @@
           }
         }
       ]
+    });
+
+    $("body").on("click", ".btn-cetak-rc-tipe", function() {
+      var id = $(this).attr("id").split("_");
+      id = id[id.length - 1];
+      $.ajax({
+        async: false,
+        url: __HOSTAPI__ + "/Reservasi/detail/" + id,
+        type: "GET",
+        beforeSend: function(request) {
+          request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+        },
+        success: function(response) {
+          console.log(response);
+          var log_change = response.response_package.log_change;
+          var data = response.response_package.response_data[0];
+
+          var arrival = data.check_in.split(" ");
+          var departure = data.check_out.split(" ");
+          var arrival_date = arrival[0].split("-");
+          var departure_date = departure[0].split("-");
+          var arrival_time = arrival[1].split(":");
+          var departure_time = departure[1].split(":");
+          var final_arrival = new Date(arrival_date[0], (parseInt(arrival_date[1]) - 1), arrival_date[2]);
+          var final_departure = new Date(departure_date[0], (parseInt(departure_date[1]) - 1), departure_date[2]);
+
+          const date1 = new Date(arrival_date[1] + '/' + arrival_date[2] + '/' + arrival_date[0]);
+          const date2 = new Date(departure_date[1] + '/' + departure_date[2] + '/' + departure_date[0]);
+          const diffTime = Math.abs(date2 - date1);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          var final_night = diffDays;
+          var final_tipe = data.kode_tipe + " - " + data.nama_tipe;
+          var final_rate = data.kode_rate;
+          var final_rate_value = data.rate_value;
+          var final_status = data.status;
+          var final_company = data.kode_company + " - " + data.nama_company;
+          var final_nationality = data.alpha_3_code + " - " + data.nama_nationality;
+          var final_kabupaten = data.nama_kabupaten;
+          var final_checkin = arrival_time[0] + ":" + arrival_time[1];
+          var final_checkout = departure_time[0] + ":" + departure_time[1];
+          var final_block = data.block;
+          var final_deposit = data.deposit;
+          var final_ktp = data.id_number;
+          var final_nama_depan = data.nama_depan;
+          var final_nama_belakang = data.nama_belakang;
+          var final_phone = data.phone;
+          var final_email = data.email;
+          var final_address = data.address;
+          var final_pax = data.pax;
+          var final_vip = data.vip;
+          var final_tgl_lahir = data.tanggal_lahir;
+          var final_alamat = data.alamat;
+          var final_card = data.card_number;
+          var final_card_valid = data.card_valid_until;
+          var final_check_in_remark = data.check_in_remark;
+          var final_payment = data.kode_payment + " " + data.ket_payment;
+
+
+          $.ajax({
+            async: false,
+            url: __HOST__ + "miscellaneous/print_template/regis_card.php",
+            beforeSend: function(request) {
+              request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+            },
+            type: "POST",
+            data: {
+              __PC_CUSTOMER__: __PC_CUSTOMER__.toUpperCase(),
+              __PC_CUSTOMER_GROUP__: __PC_CUSTOMER_GROUP__.toUpperCase(),
+              __PC_CUSTOMER_ADDRESS__: __PC_CUSTOMER_ADDRESS__,
+              __PC_CUSTOMER_CONTACT__: __PC_CUSTOMER_CONTACT__,
+              __PC_CUSTOMER_SITE__: __PC_CUSTOMER_SITE__,
+              __PC_IDENT__: __PC_IDENT__,
+              __PC_CUSTOMER_EMAIL__: __PC_CUSTOMER_EMAIL__,
+              __PC_CUSTOMER_ADDRESS_SHORT__: __PC_CUSTOMER_ADDRESS_SHORT__.toUpperCase(),
+              final_arrival: new Date(arrival_date[0], (parseInt(arrival_date[1]) - 1), arrival_date[2]),
+              final_departure: new Date(departure_date[0], (parseInt(departure_date[1]) - 1), departure_date[2]),
+              final_res_no: data.no_reservasi,
+              final_panggilan: data.nama_panggilan,
+              final_arrival_date: data.check_in_date,
+              final_departure_date: data.check_out_date,
+              final_night: diffDays,
+              final_tipe: data.kode_tipe + " - " + data.nama_tipe,
+              final_rate: data.kode_rate,
+              final_rate_value: data.rate_value,
+              final_status: data.status,
+              final_company: data.kode_company + " - " + data.nama_company,
+              final_nationality: data.alpha_3_code + " - " + data.nama_nationality,
+              final_kabupaten: data.nama_kabupaten,
+              final_checkin: arrival_time[0] + ":" + arrival_time[1],
+              final_checkout: departure_time[0] + ":" + departure_time[1],
+              final_block: data.block,
+              final_deposit: data.deposit,
+              final_ktp: data.id_number,
+              final_nama_depan: data.nama_depan,
+              final_nama_belakang: data.nama_belakang,
+              final_nama_guest: data.nama_depan + " " + data.nama_belakang,
+              final_phone: data.phone,
+              final_email: data.email,
+              final_address: data.address,
+              final_pax: data.pax,
+              final_vip: data.vip,
+              final_tgl_lahir: data.tanggal_lahir,
+              final_alamat: data.alamat,
+              final_card: data.card_number,
+              final_card_valid: data.card_valid_until,
+              final_check_in_remark: data.check_in_remark,
+              final_payment: data.kode_payment + " - " + data.ket_payment,
+              __ME__: __MY_NAME__
+            },
+            success: function(response) {
+              var containerItem = document.createElement("DIV");
+
+              $(containerItem).html(response);
+              $(containerItem).printThis({
+                header: null,
+                footer: null,
+                pageTitle: "Registration Card",
+                afterPrint: function() {
+                  //
+                }
+              });
+            },
+            error: function(response) {
+              //
+            }
+          });
+        },
+        error: function(response) {
+          console.log(response);
+        }
+      });
     });
 
     $("#changeLog").hide();
@@ -252,7 +388,6 @@
           request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
         },
         success: function(response) {
-          console.log(response);
           reset_form();
           $("#modal-reservasi").modal("show");
           var log_change = response.response_package.log_change;
@@ -345,7 +480,7 @@
           $("#txt_company").val("");
           $("#txt_rate_price").inputmask("setvalue", data.rate_value);
           $("#txt_card_number").inputmask("setvalue", data.card_number);
-          $("#txt_card_expiry").inputmask("setvalue", data.card_valid);
+          $("#txt_card_expiry").inputmask("setvalue", data.card_valid_until);
           $("#txt_check_in_remark").val(data.check_in_remark);
         },
         error: function(response) {
@@ -383,7 +518,6 @@
         processResults: function(response) {
           console.clear();
           var data = response.response_package.response_data;
-          console.log(data);
 
           return {
             results: $.map(data, function(item) {
@@ -464,7 +598,6 @@
         processResults: function(response) {
           console.clear();
           var data = response.response_package.response_data;
-          console.log(data);
 
           return {
             results: $.map(data, function(item) {
@@ -747,7 +880,6 @@
           d.status = 'VC';
         },
         dataSrc: function(response) {
-          console.log(response);
           var returnData = [];
           var rawData = [];
           if (

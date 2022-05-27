@@ -1,3 +1,4 @@
+<script src="<?php echo __HOSTNAME__; ?>/plugins/printThis/printThis.js"></script>
 <script type="text/javascript">
   $(function() {
     var id = <?php echo json_encode($_GET['id']); ?>;
@@ -74,13 +75,13 @@
       "columns": [{
           "data": null,
           render: function(data, type, row, meta) {
-            return "<h6 class=\"wrap_content\">" + row.nomor + "</h6>";
+            return "<b class=\"wrap_content\">" + row.nomor + "</b>";
           }
         },
         {
           "data": null,
           render: function(data, type, row, meta) {
-            return "<h6 class=\"wrap_content\">" + row.created_at + "</h6>";
+            return "<b class=\"wrap_content\">" + row.created_at + "</b>";
           }
         },
         {
@@ -92,7 +93,13 @@
               cc: "Credit Card",
               cash: "Cash"
             };
-            return "<h6 class=\"wrap_content\">" + typer[row.charge_method] + "</h6>";
+            var setter = row.charge_method.split(",");
+            var setCap = "";
+            for (var ax in setter) {
+              //setCap += "<span style=\"display: block\">" + typer[setter[ax]] + "<b class=\"pull-right\">" + number_format(row[setter[ax] + '_pay'], 2, ".", ",") + "</b></span>";
+              setCap += "<span style=\"display: block\">" + typer[setter[ax]] + "</span>";
+            }
+            return "<span class=\"wrap_content\">" + setCap + "</span>";
           }
         },
         {
@@ -260,12 +267,12 @@
           }
           for (var a in grouperItem) {
             total += parseFloat(grouperItem[a].subtotal);
-            $("#orderDetailPreview tbody").append("<tr>" +
+            $("#orderDetailPreview tbody").append("<tr class=\"item_get_set\">" +
               "<td class=\"autonum\">" + autonum + "</td>" +
               "<td><h6>" + grouperItem[a].nama + "</h6></td > " +
               "<td class=\"number_style\">" + grouperItem[a].qty + "</td>" +
               "<td class=\"number_style\">" + number_format(grouperItem[a].price, 2, ".", ",") + "</td>" +
-              "<td class=\"number_style\">" + number_format(grouperItem[a].subtotal, 2, ".", ",") + "</td>" +
+              "<td setter=\"" + grouperItem[a].subtotal + "\" class=\"number_style\">" + number_format(grouperItem[a].subtotal, 2, ".", ",") + "</td>" +
               "</tr>");
             autonum++;
           }
@@ -275,9 +282,11 @@
           $("#cap_service_table").html("<h6 class=\"text-danger\">" + number_format(service, 2, ".", ",") + "</h6>");
           $("#cap_total_table").html("<h5 class=\"text-info\">" + number_format((total + tax + service), 2, ".", ",") + "</h5>");
           $("#cap_total").html(number_format(total, 2, ".", ","));
-          $(".txt_co_price").each(function() {
-            $(this).inputmask("setvalue", (total + tax + service));
-          })
+          // $(".txt_co_price").each(function() {
+          //   $(this).inputmask("setvalue", (total + tax + service));
+          // });
+          $("#txt_co_price_total").inputmask("setvalue", (total + tax + service));
+          $("#txt_cash_charge").inputmask("setvalue", (total + tax + service));
         },
         error: function(response) {
           console.log(response);
@@ -341,12 +350,95 @@
       prefix: "",
       groupSeparator: ".",
       autoGroup: false,
-      digitsOptional: true
+      digitsOptional: true,
+      min: 0
     });
+
+    $("#txt_cash_pay_cc").inputmask({
+      alias: 'decimal',
+      rightAlign: true,
+      placeholder: "0.00",
+      prefix: "",
+      groupSeparator: ".",
+      autoGroup: false,
+      digitsOptional: true,
+      min: 0
+    });
+
+    $("#txt_cash_pay_gl").inputmask({
+      alias: 'decimal',
+      rightAlign: true,
+      placeholder: "0.00",
+      prefix: "",
+      groupSeparator: ".",
+      autoGroup: false,
+      digitsOptional: true,
+      min: 0
+    });
+
+    $("#txt_cash_pay_cl").inputmask({
+      alias: 'decimal',
+      rightAlign: true,
+      placeholder: "0.00",
+      prefix: "",
+      groupSeparator: ".",
+      autoGroup: false,
+      digitsOptional: true,
+      min: 0
+    });
+
+    function calculate_check_out(total, pay_cash = 0, pay_cc = 0, pay_gl = 0, pay_cl = 0) {
+      var price_cash = parseFloat($("#txt_co_price_1").inputmask("unmaskedvalue"));
+      var price_cc = parseFloat($("#txt_co_price_2").inputmask("unmaskedvalue"));
+      var price_gl = parseFloat($("#txt_co_price_3").inputmask("unmaskedvalue"));
+      var price_cl = parseFloat($("#txt_co_price_4").inputmask("unmaskedvalue"));
+      pay_cash = isNaN(pay_cash) ? 0 : pay_cash;
+      pay_cc = isNaN(pay_cc) ? 0 : pay_cc;
+      pay_gl = isNaN(pay_gl) ? 0 : pay_gl;
+      pay_cl = isNaN(pay_cl) ? 0 : pay_cl;
+
+      var sisaPay = total - (pay_cash + pay_cc + pay_gl + pay_cl);
+      if (sisaPay > 0) {
+        $("#txt_cash_charge").inputmask("setvalue", Math.abs(sisaPay));
+      } else {
+        $("#txt_cash_charge").inputmask("setvalue", sisaPay);
+      }
+    }
+
     $("#txt_cash_pay").on("keyup", function() {
-      var price = parseFloat($("#txt_co_price_1").inputmask("unmaskedvalue"));
-      var pay = parseFloat($("#txt_cash_pay").inputmask("unmaskedvalue"));
-      $("#txt_cash_charge").inputmask("setvalue", (pay - price));
+      var total = parseFloat($("#txt_co_price_total").inputmask("unmaskedvalue"));
+      var pay_cash = parseFloat($("#txt_cash_pay").inputmask("unmaskedvalue"));
+      var pay_cc = parseFloat($("#txt_cash_pay_cc").inputmask("unmaskedvalue"));
+      var pay_gl = parseFloat($("#txt_cash_pay_gl").inputmask("unmaskedvalue"));
+      var pay_cl = parseFloat($("#txt_cash_pay_cl").inputmask("unmaskedvalue"));
+      calculate_check_out(total, pay_cash, pay_cc, pay_gl, pay_cl);
+    });
+
+    $("#txt_cash_pay_cc").on("keyup", function() {
+      var total = parseFloat($("#txt_co_price_total").inputmask("unmaskedvalue"));
+      var pay_cash = parseFloat($("#txt_cash_pay").inputmask("unmaskedvalue"));
+      var pay_cc = parseFloat($("#txt_cash_pay_cc").inputmask("unmaskedvalue"));
+      var pay_gl = parseFloat($("#txt_cash_pay_gl").inputmask("unmaskedvalue"));
+      var pay_cl = parseFloat($("#txt_cash_pay_cl").inputmask("unmaskedvalue"));
+      calculate_check_out(total, pay_cash, pay_cc, pay_gl, pay_cl);
+    });
+
+    $("#txt_cash_pay_gl").on("keyup", function() {
+      var total = parseFloat($("#txt_co_price_total").inputmask("unmaskedvalue"));
+      var pay_cash = parseFloat($("#txt_cash_pay").inputmask("unmaskedvalue"));
+      var pay_cc = parseFloat($("#txt_cash_pay_cc").inputmask("unmaskedvalue"));
+      var pay_gl = parseFloat($("#txt_cash_pay_gl").inputmask("unmaskedvalue"));
+      var pay_cl = parseFloat($("#txt_cash_pay_cl").inputmask("unmaskedvalue"));
+      calculate_check_out(total, pay_cash, pay_cc, pay_gl, pay_cl);
+    });
+
+    $("#txt_cash_pay_cl").on("keyup", function() {
+      var total = parseFloat($("#txt_co_price_total").inputmask("unmaskedvalue"));
+      var pay_cash = parseFloat($("#txt_cash_pay").inputmask("unmaskedvalue"));
+      var pay_cc = parseFloat($("#txt_cash_pay_cc").inputmask("unmaskedvalue"));
+      var pay_gl = parseFloat($("#txt_cash_pay_gl").inputmask("unmaskedvalue"));
+      var pay_cl = parseFloat($("#txt_cash_pay_cl").inputmask("unmaskedvalue"));
+      calculate_check_out(total, pay_cash, pay_cc, pay_gl, pay_cl);
     });
 
     $(".txt_co_price").inputmask({
@@ -694,25 +786,90 @@
       reparse_order(selectedItem);
     });
 
+    $("#btnPreposting").click(function() {
+      var itemSetPrint = [];
+      var total = 0;
+      $(".item_get_set").each(function() {
+        var item = $(this).find("td:eq(1)").html();
+        var qty = $(this).find("td:eq(2)").html();
+        var sub = $(this).find("td:eq(4)").html();
+        var subSet = $(this).find("td:eq(4)").attr("setter");
+        itemSetPrint.push({
+          item: item,
+          qty: qty,
+          sub: sub
+        });
+        total += parseFloat(subSet);
+      });
+
+      $.ajax({
+        async: false,
+        url: __HOST__ + "miscellaneous/print_template/bill_outlet.php",
+        beforeSend: function(request) {
+          request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+        },
+        type: "POST",
+        data: {
+          __PC_CUSTOMER__: __PC_CUSTOMER__.toUpperCase(),
+          __PC_CUSTOMER_GROUP__: __PC_CUSTOMER_GROUP__.toUpperCase(),
+          __PC_CUSTOMER_ADDRESS__: __PC_CUSTOMER_ADDRESS__,
+          __PC_CUSTOMER_CONTACT__: __PC_CUSTOMER_CONTACT__,
+          __PC_CUSTOMER_SITE__: __PC_CUSTOMER_SITE__,
+          __PC_IDENT__: __PC_IDENT__,
+          __PC_CUSTOMER_EMAIL__: __PC_CUSTOMER_EMAIL__,
+          __PC_CUSTOMER_ADDRESS_SHORT__: __PC_CUSTOMER_ADDRESS_SHORT__.toUpperCase(),
+          outlet: nama,
+          item: itemSetPrint,
+          total: $("#cap_total_table h5").html(),
+          tax: $("#cap_tax_table h6").html(),
+          service: $("#cap_service_table h6").html(),
+          __ME__: __MY_NAME__
+        },
+        success: function(response) {
+          var containerItem = document.createElement("DIV");
+
+          $(containerItem).html(response);
+          $(containerItem).printThis({
+            header: null,
+            footer: null,
+            pageTitle: "OUTLET BILL",
+            afterPrint: function() {
+              location.reload();
+            }
+          });
+        },
+        error: function(response) {
+          //
+        }
+      });
+    });
+
     $("#btnCheckOut").click(function() {
       $("#orderCheckOut").modal("show");
     });
 
     $("#btnProceedCheckOut").click(function() {
       var selectedPay = $("#nav_list_method li a.active").attr("method-set");
-      var price = $("#txt_co_price_1").inputmask("unmaskedvalue");
+      var price = $("#txt_co_price_total").inputmask("unmaskedvalue");
       var cc_bank = $("#txt_cc_bank").val();
+      var cc_bank_name = $("#txt_cc_bank option:selected").html();
       var cc_num = $("#txt_cc").val();
       var cc_valid = $("#txt_cc_valid").inputmask("unmaskedvalue");
       var gl_room = $("#txt_gl_room").attr("reservasi-set");
       var cl_com = $("#txt_cl_company").val();
 
       var allowPay = false;
-      if (selectedPay === 'cash') {
+
+      var cash_pay = parseFloat($("#txt_cash_pay").inputmask("unmaskedvalue"));
+      var cc_pay = parseFloat($("#txt_cash_pay_cc").inputmask("unmaskedvalue"));
+      var gl_pay = parseFloat($("#txt_cash_pay_gl").inputmask("unmaskedvalue"));
+      var cl_pay = parseFloat($("#txt_cash_pay_cl").inputmask("unmaskedvalue"));
+
+      if (cash_pay > 0) {
         allowPay = (parseFloat($("#txt_cash_pay").inputmask("unmaskedvalue")) > 0);
       }
 
-      if (selectedPay === 'cc') {
+      if (cc_pay > 0) {
         allowPay = (
           cc_bank !== null && cc_bank !== "" && cc_bank !== undefined &&
           cc_num !== null && cc_num !== "" && cc_num !== undefined &&
@@ -720,23 +877,28 @@
         );
       }
 
-      if (selectedPay === 'gl') {
+      if (gl_pay > 0) {
         allowPay = (
           gl_room !== null && gl_room !== "" && gl_room !== undefined
         );
       }
 
-      if (selectedPay === 'cl') {
+      if (cl_pay > 0) {
         allowPay = (
           cl_com !== null && cl_com !== "" && cl_com !== undefined
         );
       }
 
+      var chargeValue = parseFloat($("#txt_cash_charge").inputmask("unmaskedvalue"));
+
+
+      allowPay = (allowPay && chargeValue <= 0);
+
       var remark = $("#txt_co_remark").val();
 
       if (allowPay) {
         Swal.fire({
-          title: "Proses [" + selectedPay.toUpperCase() + "] Check Out?",
+          title: "Proses Check Out?",
           showDenyButton: true,
           confirmButtonText: "Ya",
           denyButtonText: "Tidak",
@@ -757,6 +919,10 @@
                 cc_valid: cc_valid,
                 gl_room: gl_room,
                 cl_com: cl_com,
+                cash_pay: (isNaN(cash_pay)) ? 0 : cash_pay,
+                cc_pay: (isNaN(cc_pay)) ? 0 : cc_pay,
+                gl_pay: (isNaN(gl_pay)) ? 0 : gl_pay,
+                cl_pay: (isNaN(cl_pay)) ? 0 : cl_pay,
                 remark: remark
               },
               beforeSend: function(request) {
@@ -765,22 +931,92 @@
               success: function(response) {
                 console.log(response);
                 if (response.response_package.response_result > 0) {
+                  curOrder.ajax.reload();
+                  hisOrder.ajax.reload();
                   selectedOrder = "";
                   $("#orderCheckOut").modal("hide");
                   $("#previewBill").modal("hide");
 
-                  $("#txt_co_price_1").inputmask("setvalue", 0);
+                  $("#txt_co_price_total").inputmask("setvalue", 0);
                   $("#txt_cc_bank").empty().trigger("change");
                   $("#txt_cc").val("");
                   $("#txt_cc_valid").inputmask("setvalue", "");
                   $("#txt_cl_company").empty().trigger("change");
                   $("#txt_cash_pay").inputmask("setvalue", 0);
+                  $("#txt_cash_pay_cc").inputmask("setvalue", 0);
+                  $("#txt_cash_pay_gl").inputmask("setvalue", 0);
+                  $("#txt_cash_pay_cl").inputmask("setvalue", 0);
                   $("#txt_cash_charge").inputmask("setvalue", 0);
                   $("#txt_co_remark").val("");
                   $("#preveiewGL").hide();
                   $("#previewCL").hide();
 
-                  curOrder.ajax.reload();
+
+
+                  var itemSetPrint = [];
+                  var total = 0;
+                  $(".item_get_set").each(function() {
+                    var item = $(this).find("td:eq(1)").html();
+                    var qty = $(this).find("td:eq(2)").html();
+                    var sub = $(this).find("td:eq(4)").html();
+                    var subSet = $(this).find("td:eq(4)").attr("setter");
+                    itemSetPrint.push({
+                      item: item,
+                      qty: qty,
+                      sub: sub
+                    });
+                    total += parseFloat(subSet);
+                  });
+
+                  $.ajax({
+                    async: false,
+                    url: __HOST__ + "miscellaneous/print_template/bill_outlet.php",
+                    beforeSend: function(request) {
+                      request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+                    },
+                    type: "POST",
+                    data: {
+                      __PC_CUSTOMER__: __PC_CUSTOMER__.toUpperCase(),
+                      __PC_CUSTOMER_GROUP__: __PC_CUSTOMER_GROUP__.toUpperCase(),
+                      __PC_CUSTOMER_ADDRESS__: __PC_CUSTOMER_ADDRESS__,
+                      __PC_CUSTOMER_CONTACT__: __PC_CUSTOMER_CONTACT__,
+                      __PC_CUSTOMER_SITE__: __PC_CUSTOMER_SITE__,
+                      __PC_IDENT__: __PC_IDENT__,
+                      __PC_CUSTOMER_EMAIL__: __PC_CUSTOMER_EMAIL__,
+                      __PC_CUSTOMER_ADDRESS_SHORT__: __PC_CUSTOMER_ADDRESS_SHORT__.toUpperCase(),
+                      outlet: nama,
+                      item: itemSetPrint,
+                      total: $("#cap_total_table h5").html(),
+                      tax: $("#cap_tax_table h6").html(),
+                      service: $("#cap_service_table h6").html(),
+                      cash: cash_pay,
+                      bank_card: cc_num,
+                      back_name: cc_bank_name,
+                      bank_value: cc_pay,
+                      gl: $("#txt_gl_room option:selected").html(),
+                      gl_value: gl_pay,
+                      cl_value: cl_pay,
+                      cl: $("#cl_nama").html(),
+                      change: Math.abs(chargeValue),
+                      __ME__: __MY_NAME__
+                    },
+                    success: function(response) {
+                      var containerItem = document.createElement("DIV");
+
+                      $(containerItem).html(response);
+                      $(containerItem).printThis({
+                        header: null,
+                        footer: null,
+                        pageTitle: "OUTLET BILL",
+                        afterPrint: function() {
+                          location.reload();
+                        }
+                      });
+                    },
+                    error: function(response) {
+                      //
+                    }
+                  });
                 }
               },
               error: function(response) {
@@ -954,6 +1190,14 @@
         </button>
       </div>
       <div class="modal-body">
+        <div class="col-12 form-group">
+          <label for="txt_co_price_total">Price</label>
+          <input style="font-size: 1.2rem !important;" type="text" autocomplete="off" class="form-control txt_co_price" id="txt_co_price_total" readonly />
+        </div>
+        <div class="col-12 form-group">
+          <label for="txt_cash_charge">Sisa Bayar</label>
+          <input style="font-size: 1.2rem !important;" type="text" autocomplete="off" class="form-control" id="txt_cash_charge" readonly />
+        </div>
         <div class="z-0">
           <ul class="nav nav-tabs nav-tabs-custom" role="tablist" id="nav_list_method">
             <li class="nav-item">
@@ -994,24 +1238,16 @@
           <div class="tab-pane show active fade" id="tab-11">
             <div class="row">
               <div class="col-12 form-group">
-                <label for="txt_co_price_1">Price</label>
-                <input style="font-size: 2rem !important;" type="text" autocomplete="off" class="form-control txt_co_price" id="txt_co_price_1" readonly />
-              </div>
-              <div class="col-12 form-group">
                 <label for="txt_cash_pay">Pay</label>
-                <input style="font-size: 2rem !important;" type="text" autocomplete="off" class="form-control" id="txt_cash_pay" />
-              </div>
-              <div class="col-12 form-group">
-                <label for="txt_cash_charge">Charge</label>
-                <input style="font-size: 2rem !important;" type="text" autocomplete="off" class="form-control" id="txt_cash_charge" readonly />
+                <input value="0" style="font-size: 2rem !important;" type="text" autocomplete="off" class="form-control" id="txt_cash_pay" />
               </div>
             </div>
           </div>
           <div class="tab-pane show fade" id="tab-22">
             <div class="row">
               <div class="col-12 form-group">
-                <label for="txt_co_price_2">Price</label>
-                <input type="text" autocomplete="off" class="form-control txt_co_price" id="txt_co_price_2" readonly />
+                <label for="txt_cash_pay_cc">Pay</label>
+                <input value="0" style="font-size: 2rem !important;" type="text" autocomplete="off" class="form-control" id="txt_cash_pay_cc" />
               </div>
               <div class="col-12 form-group">
                 <label for="txt_cc_bank">Bank</label>
@@ -1030,8 +1266,8 @@
           <div class="tab-pane show fade" id="tab-33">
             <div class="row">
               <div class="col-12 form-group">
-                <label for="txt_co_price_3">Price</label>
-                <input type="text" autocomplete="off" class="form-control txt_co_price" id="txt_co_price_3" readonly />
+                <label for="txt_cash_pay_gl">Pay</label>
+                <input value="0" style="font-size: 2rem !important;" type="text" autocomplete="off" class="form-control" id="txt_cash_pay_gl" />
               </div>
               <div class="col-12 form-group">
                 <label for="txt_gl_room">Kamar</label>
@@ -1047,8 +1283,8 @@
           <div class="tab-pane show fade" id="tab-44">
             <div class="row">
               <div class="col-12 form-group">
-                <label for="txt_co_price_4">Price</label>
-                <input type="text" autocomplete="off" class="form-control txt_co_price" id="txt_co_price_4" readonly />
+                <label for="txt_cash_pay_cl">Pay</label>
+                <input value="0" style="font-size: 2rem !important;" type="text" autocomplete="off" class="form-control" id="txt_cash_pay_cl" />
               </div>
               <div class="col-12 form-group">
                 <label for="txt_cl_company">Company</label>

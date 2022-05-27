@@ -90,6 +90,19 @@
 
     $.ajax({
       async: false,
+      url: __HOSTAPI__ + "/Reservasi/count_compliment",
+      type: "GET",
+      beforeSend: function(request) {
+        request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+      },
+      success: function(response) {
+        var data = response.response_package;
+        $("#room_compliment").html(data);
+      }
+    });
+
+    $.ajax({
+      async: false,
       url: __HOSTAPI__ + "/Reservasi/count_checkout",
       type: "GET",
       beforeSend: function(request) {
@@ -178,7 +191,9 @@
         var data = response.response_package;
         $("#arr").html(number_format(data, 2, ".", ","));
       },
-      error: function(response) {}
+      error: function(response) {
+        console.log(response);
+      }
     });
 
     $.ajax({

@@ -38,10 +38,11 @@
         </ul>
       </div>
       <div class="card card-body tab-content">
-        <div class="tab-pane show active fade" id="tab-1">
+        <div class="tab-pane show active fade table-responsive" id="tab-1">
           <table class="table table-bordered" id="table-folio">
             <thead class="thead-dark">
               <tr>
+                <th class="wrap_content">Aksi</th>
                 <th class="wrap_content">No Reservasi</th>
                 <th class="wrap_content">No Folio</th>
                 <th>Guest</th>
@@ -49,7 +50,7 @@
                 <th class="wrap_content">Check In</th>
                 <th class="wrap_content">Check Out</th>
                 <th class="wrap_content">Balance</th>
-                <th class="wrap_content">Aksi</th>
+
               </tr>
             </thead>
             <tbody>

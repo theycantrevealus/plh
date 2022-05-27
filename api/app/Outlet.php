@@ -297,61 +297,47 @@ class Outlet extends Utility
     $UserData = $Authorization->readBearerToken($parameter['access_token']);
 
     $orderDetail = self::order_detail($parameter['order']);
-    if ($parameter['pay'] === 'cash') {
-      $set = self::$query->update('outlet_order', array(
-        'remark' => $parameter['remark'],
-        'charge_method' => $parameter['pay'],
-        'updated_at' => parent::format_date()
+    $chargeMethod = array();
+    $saveMethod = array(
+      'remark' => $parameter['remark'],
+      'updated_at' => parent::format_date()
+    );
+
+    if (floatval($parameter['cash_pay']) > 0) {
+      array_push($chargeMethod, 'cash');
+      $saveMethod['cash_pay'] = floatval($parameter['cash_pay']);
+    }
+    if (floatval($parameter['cc_pay']) > 0) {
+      array_push($chargeMethod, 'cc');
+      $saveMethod['cc_pay'] = floatval($parameter['cc_pay']);
+      $saveMethod['credit_card_num'] = $parameter['cc_num'];
+      $saveMethod['credit_card_valid'] = $parameter['cc_valid'];
+      $saveMethod['cc_com'] = $parameter['cc_bank'];
+    }
+    if (floatval($parameter['gl_pay']) > 0) {
+      array_push($chargeMethod, 'gl');
+      $saveMethod['gl_pay'] = floatval($parameter['gl_pay']);
+      $saveMethod['reservasi'] = $parameter['gl_room'];
+    }
+    if (floatval($parameter['cl_pay']) > 0) {
+      array_push($chargeMethod, 'cc');
+      $saveMethod['cl_pay'] = floatval($parameter['cl_pay']);
+      $saveMethod['company'] = $parameter['cl_com'];
+    }
+
+    $saveMethod['charge_method'] = implode(',', $chargeMethod);
+
+    $set = self::$query->update('outlet_order', $saveMethod)
+      ->where(array(
+        'outlet_order.uid' => '= ?'
+      ), array(
+        $parameter['order']
       ))
-        ->where(array(
-          'outlet_order.uid' => '= ?'
-        ), array(
-          $parameter['order']
-        ))
-        ->execute();
-    } else if ($parameter['pay'] === 'cc') {
-      $set = self::$query->update('outlet_order', array(
-        'remark' => $parameter['remark'],
-        'charge_method' => $parameter['pay'],
-        'credit_card_num' => $parameter['cc_num'],
-        'credit_card_valid' => $parameter['cc_valid'],
-        'company' => $parameter['cc_bank'],
-        'updated_at' => parent::format_date()
-      ))
-        ->where(array(
-          'outlet_order.uid' => '= ?'
-        ), array(
-          $parameter['order']
-        ))
-        ->execute();
-    } else if ($parameter['pay'] === 'gl') {
-      $set = self::$query->update('outlet_order', array(
-        'remark' => $parameter['remark'],
-        'charge_method' => $parameter['pay'],
-        'reservasi' => $parameter['gl_room'],
-        'updated_at' => parent::format_date()
-      ))
-        ->where(array(
-          'outlet_order.uid' => '= ?'
-        ), array(
-          $parameter['order']
-        ))
-        ->execute();
-      if ($set['response_result'] > 0) {
+      ->execute();
+
+    if ($set['response_result'] > 0) {
+      if (floatval($parameter['gl_pay']) > 0) {
         $outInf = self::outlet_detail($parameter['outlet']);
-        $totalSet = 0;
-        $order_detail = self::$query->select('outlet_order_detail', array(
-          'subtotal'
-        ))
-          ->where(array(
-            'outlet_order_detail.order_uid' => '= ?'
-          ), array(
-            $parameter['order']
-          ))
-          ->execute();
-        foreach ($order_detail['response_data'] as $OKey => $OValue) {
-          $totalSet += floatval($OValue['subtotal']);
-        }
 
         $Fol = self::$query->select('folio', array(
           'uid', 'balance'
@@ -367,7 +353,7 @@ class Outlet extends Utility
           'folio' => $Fol['response_data'][0]['uid'],
           'transcode' => $outInf['response_data'][0]['trans'],
           'qty' => 1,
-          'price' => $totalSet,
+          'price' => floatval($parameter['gl_pay']),
           'remark' => $orderDetail['response_data'][0]['nomor'],
           'deskripsi' => 'Biaya dari outlet [' . $outInf['response_data'][0]['kode'] . '-' . $outInf['response_data'][0]['nama'] . ']',
           'add_by' => $UserData['data']->uid,
@@ -375,9 +361,10 @@ class Outlet extends Utility
           'updated_at' => parent::format_date(),
           'tax_value' => __TAX_VAL__,
           'service_value' => __SER_VAL__,
-          'final_price' => floatval($parameter['price'])
+          'final_price' => floatval($parameter['gl_pay'])
         ))
           ->execute();
+
         if ($FolDetail['response_result'] > 0) {
           $checkTrans = self::$query->select('master_accounting_transact', array(
             'kode', 'dbcr', 'account_code', 'apply_tax', 'apply_service', 'keterangan'
@@ -388,7 +375,7 @@ class Outlet extends Utility
               $outInf['response_data'][0]['trans']
             ))
             ->execute()['response_data'][0];
-          $fixBalance = ($checkTrans['dbcr'] === 'D') ? (floatval($Fol['response_data'][0]['balance']) + floatval($parameter['price'])) : (floatval($Fol['response_data'][0]['balance']) - floatval($parameter['price']));
+          $fixBalance = ($checkTrans['dbcr'] === 'D') ? (floatval($Fol['response_data'][0]['balance']) + floatval($parameter['gl_pay'])) : (floatval($Fol['response_data'][0]['balance']) - floatval($parameter['gl_pay']));
           $FolioUp = self::$query->update('folio', array(
             'balance' => $fixBalance
           ))
@@ -400,24 +387,6 @@ class Outlet extends Utility
             ->execute();
         }
       }
-    } else if ($parameter['pay'] === 'cl') {
-      $set = self::$query->update('outlet_order', array(
-        'remark' => $parameter['remark'],
-        'charge_method' => $parameter['pay'],
-        'company' => $parameter['cl_com'],
-        'updated_at' => parent::format_date()
-      ))
-        ->where(array(
-          'outlet_order.uid' => '= ?'
-        ), array(
-          $parameter['order']
-        ))
-        ->execute();
-    } else {
-      $set = array(
-        'response_result' => 0,
-        'response_message' => 'Unknown Method'
-      );
     }
 
     return $set;
@@ -1055,7 +1024,7 @@ class Outlet extends Utility
 
     if ($parameter['length'] < 0) {
       $data = self::$query->select('outlet_order', array(
-        'uid', 'nomor', 'outlet', 'meja', 'pegawai', 'charge_method', 'created_at'
+        'uid', 'nomor', 'outlet', 'meja', 'pegawai', 'charge_method', 'created_at', 'cash_pay', 'cc_pay', 'gl_pay', 'cl_pay'
       ))
         ->join('pegawai', array(
           'nama'
@@ -1070,7 +1039,7 @@ class Outlet extends Utility
         ->execute();
     } else {
       $data = self::$query->select('outlet_order', array(
-        'uid', 'nomor', 'outlet', 'meja', 'pegawai', 'charge_method', 'created_at'
+        'uid', 'nomor', 'outlet', 'meja', 'pegawai', 'charge_method', 'created_at', 'cash_pay', 'cc_pay', 'gl_pay', 'cl_pay'
       ))
         ->join('pegawai', array(
           'nama'

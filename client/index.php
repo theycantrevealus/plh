@@ -15,6 +15,7 @@ $day = new DateTime('last day of this month');
   var __PC_CUSTOMER_EMAIL__ = <?php echo json_encode(__PC_CUSTOMER_EMAIL__); ?>;
   var __PC_CUSTOMER_ADDRESS__ = <?php echo json_encode(__PC_CUSTOMER_ADDRESS__); ?>;
   var __PC_CUSTOMER_CONTACT__ = <?php echo json_encode(__PC_CUSTOMER_CONTACT__); ?>;
+  var __PC_CUSTOMER_SITE__ = <?php echo json_encode(__PC_CUSTOMER_SITE__); ?>;
   var __SEGMEN_INDIVIDUAL__ = <?php echo json_encode(__SEGMEN_INDIVIDUAL__);  ?>;
   var __TAX_VAL__ = <?php echo json_encode(__TAX_VAL__);  ?>;
   var __SER_VAL__ = <?php echo json_encode(__SER_VAL__);  ?>;

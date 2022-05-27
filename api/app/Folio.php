@@ -108,7 +108,7 @@ class Folio extends Utility
         'no_reservasi', 'customer', 'check_in', 'check_out', 'rate_code', 'rate_value', 'metode_payment', 'status', 'card_number', 'card_valid_until', 'pax', 'company'
       ))
       ->join('customer', array(
-        'nama_depan', 'nama_belakang'
+        'nama_depan', 'nama_belakang', 'alamat'
       ))
       ->join('master_kamar', array(
         'nomor as nomor_kamar'
@@ -154,6 +154,8 @@ class Folio extends Utility
         $data['response_data'][$key]['kode_company'] = $Company['response_data'][0]['kode'];
         $data['response_data'][$key]['nama_company'] = $Company['response_data'][0]['nama'];
       }
+      $data['response_data'][$key]['check_in'] = date('d F Y', strtotime($value['check_in']));
+      $data['response_data'][$key]['check_out'] = date('d F Y', strtotime($value['check_out']));
     }
     return $data;
   }

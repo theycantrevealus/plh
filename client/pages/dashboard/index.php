@@ -68,7 +68,7 @@
     <div class="col-lg-3 col-md-6 card-group-row__col">
       <div class="card card-group-row__card card-body card-body-x-lg flex-row align-items-center">
         <div class="flex">
-          <div class="card-header__title text-muted mb-2">Room Available</div>
+          <div class="card-header__title text-muted mb-2">Room Saleable</div>
           <div class="text-amount"><i class="material-icons">person</i> <span id="room_available">0</span></div>
         </div>
         <div><i class="material-icons icon-muted icon-40pt ml-3">check</i></div>
@@ -77,7 +77,7 @@
     <div class="col-lg-3 col-md-6 card-group-row__col">
       <div class="card card-group-row__card card-body card-body-x-lg flex-row align-items-center">
         <div class="flex">
-          <div class="card-header__title text-muted mb-2">Room Vacant</div>
+          <div class="card-header__title text-muted mb-2">Room Vacant Clean</div>
           <div class="text-amount"><i class="material-icons">person</i> <span id="room_vacant">0</span></div>
         </div>
         <div><i class="material-icons icon-muted icon-40pt ml-3">confirmation_number</i></div>

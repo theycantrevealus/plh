@@ -365,7 +365,7 @@ class Reservasi extends Utility
     return $data;
   }
 
-  private function count_arr()
+  public function count_arr()
   {
 
     $data = self::$query->select('folio', array(
@@ -468,7 +468,7 @@ class Reservasi extends Utility
     return $data;
   }
 
-  private function count_compliment()
+  public function count_compliment()
   {
     $data = self::$query->select('folio', array(
       'uid', 'reservasi'

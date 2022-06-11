@@ -517,6 +517,7 @@
 
       selectedUID = uid;
       selectedOutlet = uid;
+      refresh_category(selectedOutlet);
       OIt.ajax.reload();
       OEm.ajax.reload();
       OTab.ajax.reload();
@@ -583,6 +584,7 @@
     $("#btnSubmitItem").click(function() {
       var harga = $("#txt_item_harga").inputmask("unmaskedvalue");
       var nama = $("#txt_item_nama").val();
+      var kategori = $("#txt_item_kategori").val();
       if (harga !== "" && nama !== "") {
         $.ajax({
           url: __HOSTAPI__ + "/Outlet",
@@ -595,6 +597,7 @@
             uid: selectedItem,
             outlet: selectedOutlet,
             harga: harga,
+            kategori: kategori,
             nama: nama
           },
           success: function(response) {
@@ -641,6 +644,93 @@
         });
       }
     });
+
+    $("#cari-kategori").keyup(function() {
+      refresh_category(selectedOutlet);
+    });
+
+    $("body").on("click", ".delete_kategori", function() {
+      var uid = $(this).attr("id").split("_");
+      uid = uid[uid.length - 1];
+
+      $.ajax({
+        url: __HOSTAPI__ + "/Outlet/category/" + uid,
+        beforeSend: function(request) {
+          request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+        },
+        type: "DELETE",
+        success: function(response) {
+          if (response.response_package.response_result > 0) {
+            refresh_category(selectedOutlet);
+          }
+        },
+        error: function(response) {
+          console.log(response);
+        }
+      });
+    });
+
+    $("#btnAddCategory").click(function() {
+      $.ajax({
+        url: __HOSTAPI__ + "/Outlet",
+        beforeSend: function(request) {
+          request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+        },
+        type: "POST",
+        data: {
+          request: 'tambah_category',
+          nama: $("#cari-kategori").val(),
+          outlet: selectedOutlet
+        },
+        success: function(response) {
+          refresh_category(selectedOutlet);
+        },
+        error: function(response) {
+          console.log(response);
+        }
+      });
+    });
+
+    function refresh_category(selectedOutlet) {
+      var filterS = $("#cari-kategori").val();
+      $.ajax({
+        url: __HOSTAPI__ + "/Outlet",
+        beforeSend: function(request) {
+          request.setRequestHeader("Authorization", "Bearer " + <?php echo json_encode($_SESSION["token"]); ?>);
+        },
+        type: "POST",
+        data: {
+          request: 'load_category',
+          search: filterS,
+          outlet: selectedOutlet
+        },
+        success: function(response) {
+          var data = response.response_package.response_data;
+          $("#load-category").html("");
+          if (data.length > 0) {
+            $("#btnAddCategory").hide();
+            $("#txt_item_kategori option").remove();
+            for (var a in data) {
+              $("#txt_item_kategori").append("<option value=\"" + data[a].uid + "\">" + data[a].nama + "</option>");
+              $("#load-category").append(
+                "<div class=\"list-group-item d-flex media align-items-center\">" +
+                "<div class=\"media-body\">" +
+                "<p class=\"m-0\">" +
+                "<span href=\"#\" class=\"text-body\"><a href=\"#\"class=\"delete_kategori text-danger\" id=\"del_cat_" + data[a].uid + "\">Hapus</a> | <strong>" + data[a].nama + "</strong></span>" +
+                "</p>" +
+                "</div>" +
+                "</div>"
+              );
+            }
+          } else {
+            $("#btnAddCategory").fadeIn();
+          }
+        },
+        error: function(response) {
+          console.log(response);
+        }
+      });
+    }
 
     $("#addItemEmployee").click(function() {
       var pegawai = $("#txt_pegawai").val();
@@ -727,21 +817,82 @@
             </div>
             <div class="card card-body tab-content">
               <div class="tab-pane show active fade" id="tab-1">
-                <button class="btn btn-info btn-sm pull-right" id="addItemOutlet">
-                  <i class="fa fa-plus"></i> Tambah Item
-                </button>
-                <br /><br />
-                <table class="table largeDataType" id="outletItem">
-                  <thead class="thead-dark">
-                    <tr>
-                      <th class="wrap_content">No</th>
-                      <th>Nama</th>
-                      <th class="wrap_content">Harga + (Tax/Service)</th>
-                      <th class="wrap_content">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody></tbody>
-                </table>
+                <div class="row">
+                  <div class="col-8">
+                    <button class="btn btn-info btn-sm pull-right" id="addItemOutlet">
+                      <i class="fa fa-plus"></i> Tambah Item
+                    </button>
+                    <br /><br />
+                    <table class="table largeDataType" id="outletItem">
+                      <thead class="thead-dark">
+                        <tr>
+                          <th class="wrap_content">No</th>
+                          <th>Nama</th>
+                          <th class="wrap_content">Harga + (Tax/Service)</th>
+                          <th class="wrap_content">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                  <div class="col-4">
+                    <div class="bg-white border-left d-flex flex-column">
+                      <div class="form-group px-3">
+                        <div class="input-group input-group-merge input-group-rounded">
+                          <input type="text" class="form-control form-control-prepended" id="cari-kategori" placeholder="Filter kategori">
+                          <div class="input-group-prepend">
+                            <div class="input-group-text">
+                              <span class="material-icons">filter_list</span>
+                            </div>
+                          </div>
+                          <div class="input-group-append">
+                            <button class="btn btn-info" id="btnAddCategory"><i class="fa fa-plus"></i> Add</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex d-flex flex-column">
+                        <div data-simplebar="init" class="h-100">
+                          <div class="simplebar-wrapper" style="margin: 0px;">
+                            <div class="simplebar-height-auto-observer-wrapper">
+                              <div class="simplebar-height-auto-observer"></div>
+                            </div>
+                            <div class="simplebar-mask">
+                              <div class="simplebar-offset" style="right: 0px; bottom: 0px;">
+                                <div class="simplebar-content" style="padding: 0px; height: 100%; overflow: hidden;">
+                                  <div class="list-group list-group-flush" style="position: relative; z-index: 0; max-height: 200px; overflow-y:scroll" id="load-category">
+
+
+                                    <!-- <div class="list-group-item d-flex media align-items-center">
+                                      <a href="#" class="avatar avatar-sm media-left mr-3">
+                                        <img src="<?php echo __HOSTNAME__; ?>/template/assets/images/256_rsz_1andy-lee-642320-unsplash.jpg" alt="Avatar" class="avatar-img rounded-circle">
+                                      </a>
+                                      <div class="media-body">
+                                        <p class="m-0">
+                                          <a href="#" class="text-body"><strong>Jenell D. Matney</strong></a><br>
+                                          <span class="text-muted">Founder and CEO</span>
+                                        </p>
+                                      </div>
+                                    </div> -->
+
+
+
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="simplebar-placeholder" style="width: 354px; height: 536px;"></div>
+                          </div>
+                          <div class="simplebar-track simplebar-horizontal" style="visibility: hidden;">
+                            <div class="simplebar-scrollbar" style="transform: translate3d(0px, 0px, 0px); visibility: hidden;"></div>
+                          </div>
+                          <div class="simplebar-track simplebar-vertical" style="visibility: hidden;">
+                            <div class="simplebar-scrollbar" style="transform: translate3d(0px, 0px, 0px); visibility: hidden;"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="tab-pane show fade" id="tab-2">
                 <div class="row">
@@ -818,6 +969,10 @@
             <div class="form-group col-md-8">
               <label for="txt_item_nama">Nama:</label>
               <input type="text" class="form-control" id="txt_item_nama" />
+            </div>
+            <div class="form-group col-md-8">
+              <label for="txt_item_kategori">Kategori:</label>
+              <select class="form-control" id="txt_item_kategori"></select>
             </div>
             <div class="form-group col-md-6">
               <label for="txt_item_harga">Harga + (Tax / Service):</label>

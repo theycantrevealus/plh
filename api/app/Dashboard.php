@@ -140,7 +140,57 @@ class Dashboard extends Utility
     return $data;
   }
 
-  private function count_room_sold()
+  public function count_room_occupied()
+  {
+    $current = 0;
+    $month = 0;
+    $year = 0;
+
+    $data = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        '(master_kamar.status' => '= ?',
+        'OR',
+        'master_kamar.status' => '= ?)',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('OC', 'OD'))
+      ->execute();
+    $current = count($data['response_data']);
+
+    return array(
+      'current' => $current,
+      'month' => $month,
+      'year' => $year
+    );
+  }
+
+  public function count_room_oo()
+  {
+    $current = 0;
+    $month = 0;
+    $year = 0;
+
+    $data = self::$query->select('master_kamar', array(
+      'uid'
+    ))
+      ->where(array(
+        'master_kamar.status' => '= ?',
+        'AND',
+        'master_kamar.deleted_at' => 'IS NULL'
+      ), array('OO'))
+      ->execute();
+    $current = count($data['response_data']);
+
+    return array(
+      'current' => $current,
+      'month' => $month,
+      'year' => $year
+    );
+  }
+
+  public function count_room_sold()
   {
     $current = 0;
     $month = 0;
@@ -215,7 +265,7 @@ class Dashboard extends Utility
     );
   }
 
-  private function count_room_available()
+  public function count_room_available()
   {
     $current = 0;
     $month = 0;

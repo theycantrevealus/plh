@@ -30,6 +30,12 @@ class Outlet extends Utility
       case 'outlet_order_current':
         return self::outlet_order_current($parameter);
         break;
+      case 'tambah_category':
+        return self::tambah_category($parameter);
+        break;
+      case 'load_category':
+        return self::load_category($parameter);
+        break;
       case 'outlet_order_history':
         return self::outlet_order_history($parameter);
         break;
@@ -95,6 +101,9 @@ class Outlet extends Utility
       case 'meja':
         return self::hapus_meja($parameter[7]);
         break;
+      case 'category':
+        return self::hapus_category($parameter[7]);
+        break;
       default:
         return $parameter;
     }
@@ -125,6 +134,47 @@ class Outlet extends Utility
     } catch (QueryException $e) {
       return 'Error => ' . $e;
     }
+  }
+
+  private function hapus_category($parameter)
+  {
+    $Authorization = new Authorization();
+    $UserData = $Authorization->readBearerToken($parameter['access_token']);
+
+    $data = self::$query->delete('outlet_category')
+      ->where(array(
+        'outlet_category.uid' => '= ?'
+      ), array(
+        $parameter
+      ))
+      ->execute();
+    if ($data['response_result'] > 0) {
+      $log = parent::log(
+        array(
+          'type' => 'activity',
+          'column' => array(
+            'unique_target',
+            'user_uid',
+            'table_name',
+            'action',
+            'logged_at',
+            'status',
+            'login_id'
+          ),
+          'value' => array(
+            $parameter,
+            $UserData['data']->uid,
+            'outlet_category',
+            'D',
+            parent::format_date(),
+            'N',
+            $UserData['data']->log_id
+          ),
+          'class' => __CLASS__
+        )
+      );
+    }
+    return $data;
   }
 
   private function hapus_meja($parameter)
@@ -566,6 +616,7 @@ class Outlet extends Utility
     $UserData = $Authorization->readBearerToken($parameter['access_token']);
     $data = self::$query->update('outlet_item', array(
       'nama' => $parameter['nama'],
+      'kategori' => $parameter['kategori'],
       'price' => $parameter['harga'],
       'updated_at' => parent::format_date()
     ))
@@ -589,6 +640,7 @@ class Outlet extends Utility
       'uid' => $uid,
       'outlet' => $parameter['outlet'],
       'nama' => $parameter['nama'],
+      'kategori' => $parameter['kategori'],
       'price' => $parameter['harga'],
       'created_at' => parent::format_date(),
       'updated_at' => parent::format_date()
@@ -996,6 +1048,37 @@ class Outlet extends Utility
     $data['recordsFiltered'] = count($itemTotal['response_data']);
     $data['length'] = intval($parameter['length']);
     $data['start'] = intval($parameter['start']);
+    return $data;
+  }
+
+  private function load_category($parameter)
+  {
+    return self::$query->select('outlet_category', array(
+      'uid', 'nama'
+    ))
+      ->where(array(
+        'outlet_category.deleted_at' => 'IS NULL',
+        'AND',
+        'outlet_category.outlet' => '= ?',
+        'AND',
+        'outlet_category.nama' => 'ILIKE ' . '\'' . $parameter['search']['value'] . '%\''
+      ), array(
+        $parameter['outlet']
+      ))
+      ->execute();
+  }
+
+  private function tambah_category($parameter)
+  {
+    $uid = parent::gen_uuid();
+    $data = self::$query->insert('outlet_category', array(
+      'uid' => $uid,
+      'outlet' => $parameter['outlet'],
+      'nama' => $parameter['nama'],
+      'created_at' => parent::format_date(),
+      'updated_at' => parent::format_date()
+    ))
+      ->execute();
     return $data;
   }
 

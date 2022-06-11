@@ -687,9 +687,9 @@ class Accounting extends Utility
   {
     $Authorization = new Authorization();
     $UserData = $Authorization->readBearerToken($parameter['access_token']);
-    if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+    if (isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
       $paramData = array(
-        '(master_accounting_transact.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
+        '(master_accounting_transact.keterangan' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
         'OR',
         'master_accounting_transact.kode' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\')',
         'AND',

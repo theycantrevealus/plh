@@ -748,9 +748,15 @@ class Kamar extends Utility
       $autonum++;
     }
 
-    $itemTotal = self::$query->select('master_kamar_tipe', array(
+    $itemTotal = self::$query->select('master_kamar', array(
       'uid'
     ))
+      ->join('master_kamar_tipe', array(
+        'nama', 'kode'
+      ))
+      ->on(array(
+        array('master_kamar.tipe', '=', 'master_kamar_tipe.uid')
+      ))
       ->where($paramData, $paramValue)
       ->execute();
 
@@ -765,7 +771,7 @@ class Kamar extends Utility
   {
     $Authorization = new Authorization();
     $UserData = $Authorization->readBearerToken($parameter['access_token']);
-    if (!isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
+    if (isset($parameter['search']['value']) && !empty($parameter['search']['value'])) {
       $paramData = array(
         '(master_kamar.nama' => 'ILIKE ' . '\'%' . $parameter['search']['value'] . '%\'',
         'OR',
@@ -816,9 +822,15 @@ class Kamar extends Utility
       $autonum++;
     }
 
-    $itemTotal = self::$query->select('master_kamar_tipe', array(
+    $itemTotal = self::$query->select('master_kamar', array(
       'uid'
     ))
+      ->join('master_kamar_tipe', array(
+        'nama', 'kode'
+      ))
+      ->on(array(
+        array('master_kamar.tipe', '=', 'master_kamar_tipe.uid')
+      ))
       ->where($paramData, $paramValue)
       ->execute();
 

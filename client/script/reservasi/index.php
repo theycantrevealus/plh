@@ -408,8 +408,8 @@
           var arrival_time = arrival[1].split(":");
           var departure_time = departure[1].split(":");
 
-          $("#txt_tanggal_arrival").datepicker("setDate", new Date(arrival_date[0], (parseInt(arrival_date[1]) - 1), arrival_date[2]));
-          $("#txt_tangal_departure").datepicker("setDate", new Date(departure_date[0], (parseInt(departure_date[1]) - 1), departure_date[2]));
+          $("#txt_tanggal_arrival").val(convertDate(new Date(arrival_date[0], (parseInt(arrival_date[1]) - 1), arrival_date[2])));
+          $("#txt_tangal_departure").val(convertDate(new Date(departure_date[0], (parseInt(departure_date[1]) - 1), departure_date[2])));
 
           const date1 = new Date(arrival_date[1] + '/' + arrival_date[2] + '/' + arrival_date[0]);
           const date2 = new Date(departure_date[1] + '/' + departure_date[2] + '/' + departure_date[0]);
@@ -934,6 +934,24 @@
       zindex: 9999999
     });
 
+    function convertDate(date) {
+      var yyyy = date.getFullYear().toString();
+      var mm = (date.getMonth() + 1).toString();
+      var dd = date.getDate().toString();
+
+      var mmChars = mm.split('');
+      var ddChars = dd.split('');
+
+      return yyyy + '-' + (mmChars[1] ? mm : "0" + mmChars[0]) + '-' + (ddChars[1] ? dd : "0" + ddChars[0]);
+    }
+
+    Date.prototype.addDays = function(days) {
+      var date = new Date(this.valueOf());
+      date.setDate(date.getDate() + days);
+      return date;
+    }
+
+
     $("#txt_card_number").inputmask({
       alias: 'decimal',
       rightAlign: false,
@@ -962,7 +980,7 @@
       digitsOptional: true
     });
 
-    $("#txt_tanggal_arrival").datepicker('setDate', new Date());
+    $("#txt_tanggal_arrival").val(__CURRENT_DATE__);
 
     $("#txt_rate_price").inputmask({
       alias: 'decimal',
@@ -983,28 +1001,17 @@
       autoGroup: false,
       digitsOptional: true
     }).keyup(function() {
-      var first_date = $("#txt_tanggal_arrival").datepicker("getDate");
-      var first_date_parsed = $.datepicker.formatDate("dd-mm-yy", first_date);
-
-      var last_date = $("#txt_tangal_departure").datepicker("getDate");
-      var last_date_parsed = $.datepicker.formatDate("dd-mm-yy", last_date);
-
-      var currentSet = $(this).inputmask('unmaskedvalue');
-
-      if (first_date_parsed === "" && last_date_parsed !== "") {
-        $("#txt_tanggal_arrival").val("");
-        $("#txt_tanggal_arrival").datepicker('setDate', new Date(last_date_parsed).getDate() - currentSet);
-      }
-
-      if (first_date_parsed !== "" && last_date_parsed === "") {
-        $("#txt_tangal_departure").val("");
-        $("#txt_tangal_departure").datepicker('setDate', new Date(first_date_parsed).getDate() + currentSet);
-      }
+      console.clear();
+      var first_date = $("#txt_tanggal_arrival").val();
+      var first_date_parsed = first_date.split("-");
+      var currentSet = parseFloat($(this).inputmask('unmaskedvalue'));
+      var setDate = new Date(first_date_parsed[0], parseFloat(first_date_parsed[1]) - 1, first_date_parsed[2]);
+      $("#txt_tangal_departure").val(convertDate(setDate.addDays(currentSet)));
     });
 
     $("#btnProsesCheckIn").click(function() {
-      var first_date = $("#txt_tanggal_arrival").datepicker("getDate");
-      var arrival = $.datepicker.formatDate("yy-mm-dd", first_date);
+      // var first_date = $("#txt_tanggal_arrival").val();
+      var arrival = $("#txt_tanggal_arrival").val();
       if (selectedKamar !== "") {
 
 
@@ -1053,11 +1060,8 @@
     });
 
     $("#btnSimpan").click(function() {
-      var first_date = $("#txt_tanggal_arrival").datepicker("getDate");
-      var arrival = $.datepicker.formatDate("dd-mm-yy", first_date);
-
-      var last_date = $("#txt_tangal_departure").datepicker("getDate");
-      var departure = $.datepicker.formatDate("dd-mm-yy", last_date);
+      var arrival = $("#txt_tanggal_arrival").val();
+      var departure = $("#txt_tangal_departure").val();
 
       var check_in = $("#txt_check_in").val();
       var check_out = $("#txt_check_out").val();
@@ -1219,7 +1223,7 @@
     $.fn.modal.Constructor.prototype._enforceFocus = function() {};
 
     function reset_form() {
-      $("#txt_tanggal_arrival").datepicker("setDate", new Date());
+      $("#txt_tanggal_arrival").val(__CURRENT_DATE__);
       $("#txt_tangal_departure").val("");
 
       $("#txt_check_in").val("");
@@ -1371,7 +1375,7 @@
           <div class="col-4">
             <div class="form-group">
               <label for="">Arrival</label>
-              <input type="text" autocomplete="off" class="form-control txt_tanggal" id="txt_tanggal_arrival">
+              <input type="date" autocomplete="off" class="form-control" id="txt_tanggal_arrival">
             </div>
           </div>
           <div class="col-2">
@@ -1402,7 +1406,7 @@
           <div class="col-4">
             <div class="form-group">
               <label for="">Departure</label>
-              <input type="text" autocomplete="off" class="form-control txt_tanggal" id="txt_tangal_departure" />
+              <input type="date" autocomplete="off" class="form-control" id="txt_tangal_departure" />
             </div>
           </div>
           <div class="col-2">

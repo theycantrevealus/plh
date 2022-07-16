@@ -1207,11 +1207,11 @@
             var price = number_format(priceSet, 2, ".", ",");
             $("#entry-trans tbody").append("<tr>" +
               "<td><span class=\"wrap_content\">" + data[a].created_at + "</span></td>" +
-              "<td kode=\"" + data[a].transcode.kode + "\" class=\"text-right\" apply-tax=\"" + data[a].transcode.apply_tax + "\" apply-service=\"" + data[a].transcode.apply_service + "\"><b class=\"wrap_content\">" + data[a].transcode.kode + "</b></td>" +
+              "<td uid-kode=\"" + data[a].transcode.uid + "\" kode=\"" + data[a].transcode.kode + "\" class=\"text-right\" apply-tax=\"" + data[a].transcode.apply_tax + "\" apply-service=\"" + data[a].transcode.apply_service + "\"><b class=\"wrap_content\">" + data[a].transcode.kode + "</b></td>" +
               "<td>" + ((data[a].deskripsi === undefined || data[a].deskripsi === null) ? data[a].transcode.keterangan : data[a].deskripsi) + "</td>" +
               "<td>" + data[a].remark + "</td>" +
-              "<td><span class=\"wrap_content debit\" set-data=\"" + ((data[a].transcode.dbcr === "D") ? priceSet : 0) + "\">" + ((data[a].transcode.dbcr === "D") ? price : "") + "</span></td>" +
-              "<td><span class=\"wrap_content kredit\" set-data=\"" + ((data[a].transcode.dbcr === "K") ? priceSet : 0) + "\">" + ((data[a].transcode.dbcr === "K") ? price : "") + "</span></td>" +
+              "<td><span class=\"wrap_content debit\" " + ((data[a].rate_price !== undefined && parseInt(data[a].rate_price) > 0) ? "rate-set=\"" + data[a].rate_price + "\"" : "") + " set-data=\"" + ((data[a].transcode.dbcr === "D") ? priceSet : 0) + "\">" + ((data[a].transcode.dbcr === "D") ? price : "") + "</span></td>" +
+              "<td><span class=\"wrap_content kredit\" " + ((data[a].rate_price !== undefined && parseInt(data[a].rate_price) > 0) ? "rate-set=\"" + data[a].rate_price + "\"" : "") + " set-data=\"" + ((data[a].transcode.dbcr === "K") ? priceSet : 0) + "\">" + ((data[a].transcode.dbcr === "K") ? price : "") + "</span></td>" +
               "<td><span class=\"wrap_content\">FO</span></td>" +
               "<td><span class=\"wrap_content\">" + data[a].add_by.nama + "</span></td>" +
               "</tr>");
@@ -1369,7 +1369,7 @@
 
     $("#btnCheckOut").click(function() {
       var balance = parseFloat($("#cap_balance h4").attr("setter-balance"));
-      if (balance !== 0) {
+      if (balance > 1) {
         Swal.fire(
           "Check Out",
           "Balance harus 0. Mohon selesaikan semua transaksi yang tertinggal",
@@ -1526,10 +1526,18 @@
       $("#entry-trans tbody tr").each(function(e) {
         var date = $(this).find("td:eq(0)").html();
         var trans = $(this).find("td:eq(1)").html();
+        var trans_code = $(this).find("td:eq(1)").attr("uid-kode");
         var desc = $(this).find("td:eq(2)").html();
         var remark = $(this).find("td:eq(3)").html();
-        var charge = $(this).find("td:eq(4) span.debit").attr("set-data");
-        var credit = $(this).find("td:eq(5) span.kredit").attr("set-data");
+        var charge = 0;
+        var credit = 0;
+        if (trans_code === __RULE_TRANS_RATE_CHARGE__) {
+          charge = $(this).find("td:eq(4) span.debit").attr("rate-set");
+          credit = $(this).find("td:eq(5) span.kredit").attr("rate-set");
+        } else {
+          charge = $(this).find("td:eq(4) span.debit").attr("set-data");
+          credit = $(this).find("td:eq(5) span.kredit").attr("set-data");
+        }
         var tax = $(this).find("td:eq(1)").attr("apply-tax");
         var service = $(this).find("td:eq(1)").attr("apply-service");
         var balance = 0;

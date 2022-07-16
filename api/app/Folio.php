@@ -67,7 +67,7 @@ class Folio extends Utility
   private function folio_trans($parameter)
   {
     $data = self::$query->select('folio_transact', array(
-      'transcode', 'price', 'remark', 'add_by', 'created_at', 'deskripsi', 'final_price'
+      'transcode', 'price', 'remark', 'add_by', 'created_at', 'deskripsi', 'final_price', 'folio'
     ))
       ->where(array(
         'folio_transact.folio' => '= ?',
@@ -79,8 +79,33 @@ class Folio extends Utility
       ->execute();
     foreach ($data['response_data'] as $key => $value) {
       $data['response_data'][$key]['created_at'] = date('d F Y', strtotime($value['created_at']));
+      // Jika transcode adalah room charge maka kurangi kalkulasi harga murni
+
+      if ($value['transcode'] === __RULE_TRANS_RATE_CHARGE__) {
+        $Rate = self::$query->select('folio', array(
+          'reservasi'
+        ))
+          ->join('reservasi', array(
+            'uid', 'rate_code'
+          ))
+          ->join('master_kamar_rate', array(
+            'harga'
+          ))
+          ->on(array(
+            array('folio.reservasi', '=', 'reservasi.uid'),
+            array('reservasi.rate_code', '=', 'master_kamar_rate.uid')
+          ))
+          ->where(array(
+            'folio.uid' => '= ?'
+          ), array(
+            $value['folio']
+          ))
+          ->execute();
+        $data['response_data'][$key]['rate_price'] = $Rate['response_data'][0]['harga'];
+      }
+
       $data['response_data'][$key]['transcode'] = self::$query->select('master_accounting_transact', array(
-        'kode', 'dbcr', 'account_code', 'apply_tax', 'apply_service', 'keterangan'
+        'uid', 'kode', 'dbcr', 'account_code', 'apply_tax', 'apply_service', 'keterangan'
       ))
         ->where(array(
           'master_accounting_transact.uid' => '= ?'

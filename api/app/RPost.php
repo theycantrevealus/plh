@@ -118,12 +118,16 @@ class RPost extends Utility
       $paramData = array(
         'room_posting.deleted_at' => 'IS NULL',
         'AND',
+        'reservasi.check_out_actual' => 'IS NULL',
+        'AND',
         'room_posting.tanggal' => '= ?'
       );
       $paramValue = array(date('Y-m-d'));
     } else {
       $paramData = array(
         'room_posting.deleted_at' => 'IS NULL',
+        'AND',
+        'reservasi.check_out_actual' => 'IS NULL',
         'AND',
         'room_posting.tanggal' => '= ?'
       );
